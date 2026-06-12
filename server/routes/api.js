@@ -147,15 +147,59 @@ router.get('/status', (req, res) => {
 
 // ─────────────────── AHK ───────────────────
 
-// GET /api/ahk/actions — daftar semua action_key yang tersedia
+// GET /api/ahk/actions — daftar action_key AHK
 router.get('/ahk/actions', (req, res) => {
   const { ACTION_REGISTRY } = require('../adapters/ahk')
   const actions = Object.entries(ACTION_REGISTRY).map(([key, script]) => ({
     action_key: key,
     script,
+    adapter: 'ahk',
     group: script.split('/')[1] || 'lib',
   }))
   res.json({ success: true, data: actions })
 })
+
+// GET /api/vjoy/actions — daftar action_key vJoy
+router.get('/vjoy/actions', (req, res) => {
+  const { ACTION_REGISTRY } = require('../adapters/vjoy')
+  const actions = Object.keys(ACTION_REGISTRY).map(key => ({
+    action_key: key,
+    adapter: 'vjoy',
+    group: 'racing',
+    description: getVjoyDesc(key),
+  }))
+  res.json({ success: true, data: actions })
+})
+
+// GET /api/actions — semua action_key dari semua adapter
+router.get('/actions', (req, res) => {
+  const { ACTION_REGISTRY: ahkReg } = require('../adapters/ahk')
+  const { ACTION_REGISTRY: vjoyReg } = require('../adapters/vjoy')
+  const ahk = Object.entries(ahkReg).map(([key, script]) => ({
+    action_key: key, adapter: 'ahk',
+    group: script.split('/')[1] || 'lib', script,
+  }))
+  const vjoy = Object.keys(vjoyReg).map(key => ({
+    action_key: key, adapter: 'vjoy',
+    group: 'racing', description: getVjoyDesc(key),
+  }))
+  res.json({ success: true, data: [...ahk, ...vjoy] })
+})
+
+function getVjoyDesc(key) {
+  const desc = {
+    vjoy_brake:        'Rem penuh (trigger kiri)',
+    vjoy_throttle:     'Gas penuh (trigger kanan)',
+    vjoy_steer_left:   'Steer kiri penuh',
+    vjoy_steer_right:  'Steer kanan penuh',
+    vjoy_random_steer: 'Steer acak kiri-kanan',
+    vjoy_handbrake:    'Rem tangan (tombol X)',
+    vjoy_drift_chaos:  'Gas penuh + steer chaos',
+    vjoy_reverse:      'Mundur paksa',
+    vjoy_rumble:       'Getarkan controller',
+    vjoy_disconnect:   'Cabut-colok controller sesaat',
+  }
+  return desc[key] || key
+}
 
 module.exports = router

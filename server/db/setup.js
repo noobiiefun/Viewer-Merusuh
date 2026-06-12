@@ -58,10 +58,18 @@ function setup() {
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
   const defaults = [
-    [1, 'Rem Mendadak',   'Memaksa kendaraan rem mendadak',        5000,  9999,  'racing', 'ahk', 'brake_force',    3000, 0],
-    [2, 'Klakson Spam',   'Spam klakson berkali-kali',             10000, 19999, 'action', 'ahk', 'horn_spam',      5000, 0],
-    [3, 'Hujan Bom',      'Spawn explosion di sekitar karakter',   20000, 49999, 'action', 'ahk', 'explosion_rain', 8000, 0],
-    [4, 'Chaos Ultimate', 'Semua efek sekaligus — total kacau',    50000, null,  'action', 'ahk', 'chaos_mode',    15000, 0],
+    // ── AHK: Racing ──
+    [1, 'Rem Mendadak',    'Memaksa kendaraan rem mendadak (keyboard)',        5000,  9999,  'racing', 'ahk',  'brake_force',       3000, 0],
+    [2, 'Handbrake',       'Rem tangan mendadak (keyboard)',                   5000,  9999,  'racing', 'ahk',  'handbrake',         2000, 0],
+    // ── AHK: Action ──
+    [3, 'Klakson Spam',    'Spam klakson berkali-kali',                       10000, 19999, 'action', 'ahk',  'horn_spam',         5000, 0],
+    [4, 'Hujan Bom',       'Spawn explosion di sekitar karakter',             20000, 49999, 'action', 'ahk',  'explosion_rain',    8000, 0],
+    [5, 'Chaos Ultimate',  'Semua efek sekaligus — total kacau',              50000, null,  'action', 'ahk',  'chaos_mode',       15000, 0],
+    // ── vJoy: Racing (controller) ──
+    [6, 'Rem Controller',  'Rem penuh via virtual controller (ViGEm)',         5000,  9999,  'racing', 'vjoy', 'vjoy_brake',        3000, 0],
+    [7, 'Steer Chaos',     'Steer kiri-kanan acak via controller',            10000, 19999, 'racing', 'vjoy', 'vjoy_random_steer', 5000, 0],
+    [8, 'Drift Chaos',     'Gas penuh + steer chaos via controller',          20000, 49999, 'racing', 'vjoy', 'vjoy_drift_chaos',  8000, 0],
+    [9, 'Disconnect Ctrl', 'Cabut-colok virtual controller sesaat',           15000, 29999, 'racing', 'vjoy', 'vjoy_disconnect',   2000, 0],
   ]
   for (const row of defaults) seedEffect.run(...row)
 

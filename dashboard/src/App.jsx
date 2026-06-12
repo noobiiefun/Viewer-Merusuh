@@ -3,6 +3,7 @@ import { useState } from 'react'
 import Sidebar from './components/Sidebar'
 import ToastContainer from './components/ToastContainer'
 import DashboardPage from './pages/DashboardPage'
+import VjoyPage from './pages/VjoyPage'
 import EffectsPage from './pages/EffectsPage'
 import LogsPage from './pages/LogsPage'
 import ConfigPage from './pages/ConfigPage'
@@ -18,6 +19,7 @@ export default function App() {
     dashboard: <DashboardPage lastDonation={lastDonation} lastEffect={lastEffect} />,
     effects:   <EffectsPage toast={toast} />,
     logs:      <LogsPage lastDonation={lastDonation} />,
+    vjoy:      <VjoyPage toast={toast} />,
     config:    <ConfigPage toast={toast} />,
   }
 

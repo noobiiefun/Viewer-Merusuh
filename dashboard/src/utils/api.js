@@ -29,7 +29,9 @@ export const api = {
 
   getConfig:     ()      => request('GET', '/api/config'),
   saveConfig:    (cfg)   => request('PUT', '/api/config', cfg),
-  getAhkActions: ()      => request('GET', '/api/ahk/actions'),
+  getAhkActions:  ()      => request('GET', '/api/ahk/actions'),
+  getVjoyActions: ()      => request('GET', '/api/vjoy/actions'),
+  getActions:     ()      => request('GET', '/api/actions'),   // semua adapter
   getStatus:     ()      => request('GET', '/api/status'),
   getQueue:      ()      => request('GET', '/api/queue'),
   testDonation:  (body)  => request('POST', '/api/test/donation', body),

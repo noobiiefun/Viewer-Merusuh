@@ -312,7 +312,7 @@ socket.on('effect', (data) => {
 - [x] **Phase 1** — Core server, donation adapters (Saweria & Trakteer), effect engine, OBS overlay
 - [x] **Phase 2** — Game adapters AutoHotkey (Racing, Action/GTA5, FPS, Survival) + sistem grup modular
 - [x] **Phase 3** — Dashboard web React (manajemen efek, log donasi, konfigurasi, test donasi)
-- [ ] **Phase 4** — vJoy/ViGEm virtual gamepad adapter (untuk racing game dengan controller)
+- [x] **Phase 4** — vJoy/ViGEm virtual gamepad adapter (virtual Xbox 360 controller, 10 aksi racing)
 - [ ] **Phase 5** — Plugin native GTA 5 & BeamNG.drive
 - [ ] **Phase 6** — Adapter tambahan: Streamlabs, Ko-fi, Donorbox
 - [ ] **Phase 7** — Installer/exe untuk non-developer
@@ -398,7 +398,38 @@ AHK_EXE_PATH=C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe
 | `drop_item` | Drop item berulang | G |
 | `camera_shake` | Kamera goyang | Mouse chaos |
 
-### Menambah Game Baru
+### vJoy / ViGEm Virtual Gamepad (Phase 4)
+
+Untuk racing game yang menggunakan controller (bukan keyboard), Viewer Merusuh bisa mengendalikan axis dan tombol controller secara programatik via **ViGEmBus** — driver virtual controller resmi dari Nefarius.
+
+### Prasyarat
+
+1. Install [ViGEmBus driver](https://github.com/nefarius/ViGEmBus/releases) → restart PC
+2. `npm install` (vigemclient sudah di package.json)
+
+Jika berhasil, log server menampilkan:
+```
+🎮 [vJoy] ViGEmBus terhubung — virtual Xbox 360 controller aktif
+```
+
+### Aksi yang tersedia (adapter: `vjoy`)
+
+| action_key | Efek | Input Controller |
+|------------|------|-----------------|
+| `vjoy_brake` | Rem penuh | Left Trigger 100% |
+| `vjoy_throttle` | Gas penuh | Right Trigger 100% |
+| `vjoy_steer_left` | Steer kiri penuh | Left Stick ← max |
+| `vjoy_steer_right` | Steer kanan penuh | Left Stick → max |
+| `vjoy_random_steer` | Steer acak chaos | Left Stick oscillate |
+| `vjoy_handbrake` | Handbrake | Button X |
+| `vjoy_drift_chaos` | Gas + steer chaos | RT 100% + oscillate |
+| `vjoy_reverse` | Mundur paksa | LT 100% + stick down |
+| `vjoy_rumble` | Getarkan controller | Steer chaos ringan |
+| `vjoy_disconnect` | Cabut-colok controller | Disconnect/reconnect |
+
+Panduan lengkap: [`docs/VJOY_GUIDE.md`](docs/VJOY_GUIDE.md)
+
+## Menambah Game Baru
 
 Lihat panduan lengkap di [`docs/ADDING_GAMES.md`](docs/ADDING_GAMES.md).
 

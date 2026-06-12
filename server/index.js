@@ -11,6 +11,7 @@ const path       = require('path')
 const eventBus = require('./core/eventBus')
 require('./core/effectEngine')
 require('./adapters/ahk')
+require('./adapters/vjoy')      // Aktifkan vJoy/ViGEm virtual gamepad adapter
 
 const { saweriаWebhookHandler } = require('./adapters/saweria')
 const { trakteerWebhookHandler } = require('./adapters/trakteer')

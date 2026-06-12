@@ -15,7 +15,7 @@ const EMPTY_FORM = {
 
 export default function EffectsPage({ toast }) {
   const [effects, setEffects]     = useState([])
-  const [ahkActions, setAhkActions] = useState([])
+  const [allActions, setAllActions] = useState([])
   const [loading, setLoading]     = useState(true)
   const [modal, setModal]         = useState(null)  // null | 'create' | 'edit'
   const [form, setForm]           = useState(EMPTY_FORM)
@@ -26,9 +26,9 @@ export default function EffectsPage({ toast }) {
   async function load() {
     setLoading(true)
     try {
-      const [ef, ak] = await Promise.all([api.getEffects(), api.getAhkActions()])
+      const [ef, ak] = await Promise.all([api.getEffects(), api.getActions ? api.getActions() : api.getAhkActions()])
       setEffects(ef.data)
-      setAhkActions(ak.data)
+      setAllActions(ak.data)
     } catch { toast.error('Gagal memuat efek') }
     finally { setLoading(false) }
   }
@@ -148,7 +148,14 @@ export default function EffectsPage({ toast }) {
                       {GROUP_ICONS[e.game_target] || '🎮'} {e.game_target}
                     </span>
                   </td>
-                  <td><code style={{ background: 'var(--surface2)', padding: '2px 6px', borderRadius: 4, fontSize: 12 }}>{e.action_key}</code></td>
+                  <td>
+                    <div style={{display:'flex', flexDirection:'column', gap:3}}>
+                      <code style={{ background: 'var(--surface2)', padding: '2px 6px', borderRadius: 4, fontSize: 12 }}>{e.action_key}</code>
+                      <span style={{fontSize:10, color: e.adapter==='vjoy' ? 'var(--amber)' : 'var(--text-3)'}}>
+                        {e.adapter === 'vjoy' ? '🕹️ vJoy' : '🖥️ AHK'}
+                      </span>
+                    </div>
+                  </td>
                   <td style={{ color: 'var(--text-2)' }}>{(e.duration_ms / 1000).toFixed(1)}s</td>
                   <td>
                     <label className="toggle">
@@ -209,28 +216,33 @@ export default function EffectsPage({ toast }) {
                 <div style={{ flex: 1 }}>
                   <label>Adapter</label>
                   <select className="select" value={form.adapter}
-                    onChange={e => setForm(f => ({ ...f, adapter: e.target.value }))}>
-                    <option value="ahk">AutoHotkey</option>
-                    <option value="vjoy">vJoy (Phase 4)</option>
+                    onChange={e => setForm(f => ({ ...f, adapter: e.target.value, action_key: '' }))}>
+                    <option value="ahk">🖥️ AutoHotkey (keyboard/mouse)</option>
+                    <option value="vjoy">🕹️ vJoy / ViGEm (controller)</option>
                   </select>
                 </div>
               </div>
               <div>
-                <label>Action Key * — script AHK yang akan dijalankan</label>
+                <label>Action Key * — aksi yang akan dijalankan</label>
                 <select className="select" value={form.action_key}
                   onChange={e => setForm(f => ({ ...f, action_key: e.target.value }))}>
                   <option value="">-- Pilih Action --</option>
-                  {ahkActions.map(a => (
+                  {allActions.filter(a => a.adapter === form.adapter).map(a => (
                     <option key={a.action_key} value={a.action_key}>
-                      [{a.group}] {a.action_key}
+                      [{a.group}] {a.action_key}{a.description ? ' — ' + a.description : ''}
                     </option>
                   ))}
                   <option value="__custom__">-- Ketik manual --</option>
                 </select>
-                {(form.action_key === '__custom__' || !ahkActions.find(a => a.action_key === form.action_key)) && (
+                {(form.action_key === '__custom__' || (!allActions.find(a => a.action_key === form.action_key) && form.action_key !== '')) && (
                   <input className="input" style={{ marginTop: 6 }} placeholder="nama_action_key"
                     value={form.action_key === '__custom__' ? '' : form.action_key}
                     onChange={e => setForm(f => ({ ...f, action_key: e.target.value }))} />
+                )}
+                {form.adapter === 'vjoy' && (
+                  <p style={{ color: 'var(--amber)', fontSize: 11, marginTop: 6 }}>
+                    ⚠️ vJoy memerlukan ViGEmBus driver terinstall di Windows. <a href="https://github.com/nefarius/ViGEmBus/releases" target="_blank" style={{color:'var(--primary)'}}>Download di sini</a>
+                  </p>
                 )}
               </div>
               <div style={{ display: 'flex', gap: 12 }}>

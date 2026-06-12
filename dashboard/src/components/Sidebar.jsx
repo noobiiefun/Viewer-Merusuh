@@ -3,6 +3,7 @@ const NAV = [
   { id: 'dashboard', icon: '📊', label: 'Dashboard' },
   { id: 'effects',   icon: '⚡', label: 'Efek' },
   { id: 'logs',      icon: '📋', label: 'Log Donasi' },
+  { id: 'vjoy',      icon: '🕹️', label: 'vJoy Controller' },
   { id: 'config',    icon: '⚙️',  label: 'Konfigurasi' },
 ]
 
