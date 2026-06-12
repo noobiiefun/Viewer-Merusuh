@@ -292,7 +292,7 @@ socket.on('effect', (data) => {
 
 - [x] **Phase 1** — Core server, donation adapters (Saweria & Trakteer), effect engine, OBS overlay
 - [x] **Phase 2** — Game adapters AutoHotkey (Racing, Action/GTA5, FPS, Survival) + sistem grup modular
-- [ ] **Phase 3** — Dashboard web React (manajemen efek via UI)
+- [x] **Phase 3** — Dashboard web React (manajemen efek, log donasi, konfigurasi, test donasi)
 - [ ] **Phase 4** — vJoy/ViGEm virtual gamepad adapter (untuk racing game dengan controller)
 - [ ] **Phase 5** — Plugin native GTA 5 & BeamNG.drive
 - [ ] **Phase 6** — Adapter tambahan: Streamlabs, Ko-fi, Donorbox
@@ -300,7 +300,37 @@ socket.on('effect', (data) => {
 
 ---
 
-## Game Adapters (AutoHotkey)
+## Dashboard Web
+
+Dashboard React untuk mengatur semua konfigurasi tanpa coding.
+
+### Menjalankan Dashboard (Development)
+
+```bash
+# Terminal 1 — jalankan server backend
+npm run dev
+
+# Terminal 2 — jalankan dashboard frontend
+npm run dev:dashboard
+# Buka http://localhost:5173
+```
+
+### Build untuk Production
+
+```bash
+npm run build
+# Dashboard ter-build ke dashboard/dist/
+# Otomatis di-serve oleh server di http://localhost:3000/dashboard
+```
+
+### Fitur Dashboard
+
+- **📊 Dashboard** — Stat card (efek aktif, total donasi, uptime) + live feed efek real-time + panel test donasi
+- **⚡ Manajemen Efek** — Tambah/edit/hapus efek, toggle aktif/nonaktif, filter per grup game
+- **📋 Log Donasi** — Riwayat semua donasi masuk dengan filter platform & pagination
+- **⚙️ Konfigurasi** — Copy webhook URL, setup OBS overlay, setting queue mode, path AutoHotkey
+
+
 
 ### Prasyarat
 

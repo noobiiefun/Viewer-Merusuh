@@ -6,9 +6,19 @@
   "scripts": {
     "start": "node server/index.js",
     "dev": "nodemon server/index.js",
-    "setup": "node server/db/setup.js"
+    "setup": "node server/db/setup.js",
+    "dev:dashboard": "cd dashboard && npm run dev",
+    "build": "cd dashboard && npm install && npm run build"
   },
-  "keywords": ["streaming", "donation", "game", "tiktok", "saweria", "trakteer", "crowd-control"],
+  "keywords": [
+    "streaming",
+    "donation",
+    "game",
+    "tiktok",
+    "saweria",
+    "trakteer",
+    "crowd-control"
+  ],
   "author": "",
   "license": "MIT",
   "dependencies": {
