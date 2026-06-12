@@ -291,15 +291,74 @@ socket.on('effect', (data) => {
 ## Roadmap
 
 - [x] **Phase 1** — Core server, donation adapters (Saweria & Trakteer), effect engine, OBS overlay
-- [ ] **Phase 2** — Game adapters (AutoHotkey, vJoy/ViGEm untuk Windows)
+- [x] **Phase 2** — Game adapters AutoHotkey (Racing, Action/GTA5, FPS, Survival) + sistem grup modular
 - [ ] **Phase 3** — Dashboard web React (manajemen efek via UI)
-- [ ] **Phase 4** — Plugin native GTA 5 & BeamNG.drive
-- [ ] **Phase 5** — Adapter tambahan: Streamlabs, Ko-fi, Donorbox
-- [ ] **Phase 6** — Installer/exe untuk non-developer
+- [ ] **Phase 4** — vJoy/ViGEm virtual gamepad adapter (untuk racing game dengan controller)
+- [ ] **Phase 5** — Plugin native GTA 5 & BeamNG.drive
+- [ ] **Phase 6** — Adapter tambahan: Streamlabs, Ko-fi, Donorbox
+- [ ] **Phase 7** — Installer/exe untuk non-developer
 
 ---
 
-## Menambah Adapter Platform Baru
+## Game Adapters (AutoHotkey)
+
+### Prasyarat
+
+- [AutoHotkey v2](https://www.autohotkey.com/download/) terinstall di Windows
+- Set path AHK di `.env`:
+
+```env
+AHK_EXE_PATH=C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe
+```
+
+### Efek Bawaan per Grup
+
+**🏎️ Racing** — BeamNG.drive, NFS, Forza, GTA 5 racing
+
+| action_key | Efek | Default Key |
+|------------|------|-------------|
+| `brake_force` | Rem mendadak | Space |
+| `handbrake` | Rem tangan | X |
+| `full_throttle` | Gas penuh paksa | W |
+| `flip_car` | Balik mobil | - |
+| `slow_motion` | Slow motion | F9 |
+
+**💥 Action / Open World** — GTA 5, RDR2
+
+| action_key | Efek | Metode |
+|------------|------|--------|
+| `horn_spam` | Spam klakson | Key E |
+| `explosion_rain` | Hujan bom | Cheat HIGHEX |
+| `wanted_level_up` | +3 bintang wanted | Cheat FUGITIVE |
+| `ragdoll` | Karakter jatuh | Jump + Crouch |
+| `super_jump` | Super jump | Cheat HOPTOIT |
+| `chaos_mode` | Semua efek sekaligus | Multi-cheat |
+
+**🔫 FPS** — CS2, Valorant, COD
+
+| action_key | Efek | Metode |
+|------------|------|--------|
+| `no_ammo` | Paksa reload terus | Spam R |
+| `invert_mouse` | Kamera chaos | Mouse shake |
+| `random_weapon` | Ganti senjata acak | Random 1-9 |
+
+**🌲 Survival** — Minecraft, Rust, DayZ
+
+| action_key | Efek | Default Key |
+|------------|------|-------------|
+| `drop_item` | Drop item berulang | G |
+| `camera_shake` | Kamera goyang | Mouse chaos |
+
+### Menambah Game Baru
+
+Lihat panduan lengkap di [`docs/ADDING_GAMES.md`](docs/ADDING_GAMES.md).
+
+Singkatnya:
+1. Buat script AHK di `adapters/ahk/games/[grup]/[efek].ahk`
+2. Daftar `action_key` di `server/adapters/ahk.js` → `ACTION_REGISTRY`
+3. Tambah efek ke DB via `POST /api/effects`
+
+
 
 Buat file baru di `server/adapters/nama_platform.js`:
 

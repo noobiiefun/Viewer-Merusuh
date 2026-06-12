@@ -139,4 +139,17 @@ router.get('/status', (req, res) => {
   })
 })
 
+// ─────────────────── AHK ───────────────────
+
+// GET /api/ahk/actions — daftar semua action_key yang tersedia
+router.get('/ahk/actions', (req, res) => {
+  const { ACTION_REGISTRY } = require('../adapters/ahk')
+  const actions = Object.entries(ACTION_REGISTRY).map(([key, script]) => ({
+    action_key: key,
+    script,
+    group: script.split('/')[1] || 'lib',
+  }))
+  res.json({ success: true, data: actions })
+})
+
 module.exports = router

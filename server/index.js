@@ -10,6 +10,7 @@ const path     = require('path')
 
 const eventBus = require('./core/eventBus')
 require('./core/effectEngine') // Aktifkan engine (side effect: attach listener)
+require('./adapters/ahk')      // Aktifkan AHK game adapter
 
 const { saweriаWebhookHandler } = require('./adapters/saweria')
 const { trakteerWebhookHandler } = require('./adapters/trakteer')
