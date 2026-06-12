@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Viewer Merusuh — Overlay</title>
+<script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: transparent;
+    font-family: 'Segoe UI', sans-serif;
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: flex-end;
+    padding: 20px;
+    gap: 10px;
+  }
+
+  .notif {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(10, 10, 20, 0.88);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-left: 4px solid #7c3aed;
+    border-radius: 10px;
+    padding: 12px 16px;
+    max-width: 380px;
+    width: 100%;
+    animation: slideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    backdrop-filter: blur(8px);
+  }
+
+  .notif.hiding {
+    animation: slideOut 0.4s ease-in forwards;
+  }
+
+  .notif-icon { font-size: 28px; line-height: 1; flex-shrink: 0; }
+
+  .notif-body { flex: 1; min-width: 0; }
+
+  .notif-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #a78bfa;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 2px;
+  }
+
+  .notif-donor {
+    font-size: 15px;
+    font-weight: 600;
+    color: #ffffff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .notif-amount {
+    font-size: 13px;
+    color: #86efac;
+    font-weight: 500;
+  }
+
+  .notif-effect {
+    font-size: 12px;
+    color: #fbbf24;
+    margin-top: 4px;
+    font-weight: 500;
+  }
+
+  .notif-msg {
+    font-size: 12px;
+    color: rgba(255,255,255,0.55);
+    margin-top: 2px;
+    font-style: italic;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .progress-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    background: #7c3aed;
+    border-radius: 0 0 0 10px;
+    animation: progress linear forwards;
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(60px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes slideOut {
+    from { opacity: 1; transform: translateX(0); }
+    to   { opacity: 0; transform: translateX(60px); }
+  }
+  @keyframes progress {
+    from { width: 100%; }
+    to   { width: 0%; }
+  }
+</style>
+</head>
+<body>
+<div id="container"></div>
+
+<script>
+const container = document.getElementById('container')
+const SERVER_URL = window.location.origin || 'http://localhost:3000'
+const socket = io(SERVER_URL)
+
+const PLATFORM_ICONS = {
+  saweria:  '🧋',
+  trakteer: '☕',
+  test:     '🧪',
+  default:  '💜',
+}
+
+function formatRupiah(n) {
+  return 'Rp ' + n.toLocaleString('id-ID')
+}
+
+function showNotif({ donation, effect }) {
+  const icon = PLATFORM_ICONS[donation.platform] || PLATFORM_ICONS.default
+  const duration = effect ? effect.durationMs + 1500 : 5000
+
+  const el = document.createElement('div')
+  el.className = 'notif'
+  el.style.position = 'relative'
+  el.innerHTML = `
+    <div class="notif-icon">${icon}</div>
+    <div class="notif-body">
+      <div class="notif-title">${donation.platform.toUpperCase()}</div>
+      <div class="notif-donor">${donation.donatorName}</div>
+      <div class="notif-amount">${formatRupiah(donation.amount)}</div>
+      ${effect ? `<div class="notif-effect">🎮 ${effect.name}</div>` : ''}
+      ${donation.message ? `<div class="notif-msg">"${donation.message}"</div>` : ''}
+    </div>
+    <div class="progress-bar" style="animation-duration: ${duration}ms"></div>
+  `
+
+  container.prepend(el)
+
+  // Auto remove
+  setTimeout(() => {
+    el.classList.add('hiding')
+    setTimeout(() => el.remove(), 400)
+  }, duration)
+
+  // Max 5 notif sekaligus
+  const all = container.querySelectorAll('.notif')
+  if (all.length > 5) all[all.length - 1].remove()
+}
+
+// Terima event donation (tanpa efek yang cocok)
+socket.on('donation', (donation) => {
+  // Ditangani oleh event 'effect' jika ada efek
+  // Ini fallback jika tidak ada efek yang cocok
+})
+
+// Terima event effect (donasi + efek aktif)
+socket.on('effect', (data) => {
+  showNotif({ donation: data.donation, effect: data })
+})
+
+socket.on('connect', () => console.log('Overlay terhubung ke server'))
+socket.on('disconnect', () => console.log('Overlay terputus dari server'))
+</script>
+</body>
+</html>
