@@ -1,5 +1,7 @@
 // dashboard/src/utils/api.js
-const BASE = import.meta.env.DEV ? 'http://localhost:3000' : ''
+// Saat dev: proxy ke server via vite (port otomatis dari .env)
+// Saat production: pakai origin yang sama (server serve dashboard)
+const BASE = import.meta.env.DEV ? '' : ''
 
 async function request(method, path, body) {
   const res = await fetch(BASE + path, {
@@ -13,30 +15,22 @@ async function request(method, path, body) {
 }
 
 export const api = {
-  // Effects
-  getEffects:      ()       => request('GET',    '/api/effects'),
-  getEffect:       (id)     => request('GET',    `/api/effects/${id}`),
-  createEffect:    (body)   => request('POST',   '/api/effects', body),
-  updateEffect:    (id, b)  => request('PUT',    `/api/effects/${id}`, b),
-  deleteEffect:    (id)     => request('DELETE', `/api/effects/${id}`),
-  toggleEffect:    (id)     => request('POST',   `/api/effects/${id}/toggle`),
+  getEffects:    ()       => request('GET',    '/api/effects'),
+  getEffect:     (id)     => request('GET',    `/api/effects/${id}`),
+  createEffect:  (body)   => request('POST',   '/api/effects', body),
+  updateEffect:  (id, b)  => request('PUT',    `/api/effects/${id}`, b),
+  deleteEffect:  (id)     => request('DELETE', `/api/effects/${id}`),
+  toggleEffect:  (id)     => request('POST',   `/api/effects/${id}/toggle`),
 
-  // Logs
   getLogs: (params = {}) => {
     const q = new URLSearchParams(params).toString()
     return request('GET', `/api/logs${q ? '?' + q : ''}`)
   },
 
-  // Config
-  getConfig:  ()    => request('GET', '/api/config'),
-  saveConfig: (cfg) => request('PUT', '/api/config', cfg),
-
-  // AHK actions list
-  getAhkActions: () => request('GET', '/api/ahk/actions'),
-
-  // Status
-  getStatus: () => request('GET', '/api/status'),
-
-  // Test
-  testDonation: (body) => request('POST', '/api/test/donation', body),
+  getConfig:     ()      => request('GET', '/api/config'),
+  saveConfig:    (cfg)   => request('PUT', '/api/config', cfg),
+  getAhkActions: ()      => request('GET', '/api/ahk/actions'),
+  getStatus:     ()      => request('GET', '/api/status'),
+  getQueue:      ()      => request('GET', '/api/queue'),
+  testDonation:  (body)  => request('POST', '/api/test/donation', body),
 }

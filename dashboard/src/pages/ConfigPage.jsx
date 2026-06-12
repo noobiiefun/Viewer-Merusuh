@@ -97,7 +97,35 @@ export default function ConfigPage({ toast }) {
               <option value="sequential">Sequential — efek antri satu per satu</option>
               <option value="parallel">Parallel — efek langsung dijalankan bersamaan</option>
             </select>
+            <p style={{ color: 'var(--text-3)', fontSize: 11, marginTop: 4 }}>
+              Sequential: 3 donasi = 3 efek berurutan. Parallel: langsung semua.
+            </p>
           </div>
+        </div>
+
+        {/* Durasi Notifikasi */}
+        <div>
+          <label>Durasi Notifikasi OBS (detik)</label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <input
+              className="input"
+              type="range"
+              min="1" max="30" step="0.5"
+              style={{ flex: 1, accentColor: 'var(--primary)', cursor: 'pointer' }}
+              value={(parseInt(cfg.notification_duration_ms) || 5000) / 1000}
+              onChange={e => set('notification_duration_ms', String(parseFloat(e.target.value) * 1000))}
+            />
+            <div style={{
+              background: 'var(--surface2)', border: '1px solid var(--border)',
+              borderRadius: 6, padding: '6px 14px', fontWeight: 700,
+              color: 'var(--primary)', minWidth: 60, textAlign: 'center',
+            }}>
+              {((parseInt(cfg.notification_duration_ms) || 5000) / 1000).toFixed(1)}s
+            </div>
+          </div>
+          <p style={{ color: 'var(--text-3)', fontSize: 11, marginTop: 4 }}>
+            Berapa lama notif donasi tampil di OBS. Overlay sync otomatis tiap 30 detik.
+          </p>
         </div>
       </Section>
 

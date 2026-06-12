@@ -2,19 +2,19 @@
 // Entry point — Viewer Merusuh Core Server
 
 require('dotenv').config()
-const express  = require('express')
-const http     = require('http')
+const express    = require('express')
+const http       = require('http')
 const { Server } = require('socket.io')
-const cors     = require('cors')
-const path     = require('path')
+const cors       = require('cors')
+const path       = require('path')
 
 const eventBus = require('./core/eventBus')
-require('./core/effectEngine') // Aktifkan engine (side effect: attach listener)
-require('./adapters/ahk')      // Aktifkan AHK game adapter
+require('./core/effectEngine')
+require('./adapters/ahk')
 
 const { saweriаWebhookHandler } = require('./adapters/saweria')
 const { trakteerWebhookHandler } = require('./adapters/trakteer')
-const apiRouter = require('./routes/api')
+const apiRouter  = require('./routes/api')
 
 const app    = express()
 const server = http.createServer(app)
@@ -22,44 +22,47 @@ const io     = new Server(server, {
   cors: { origin: '*', methods: ['GET', 'POST'] }
 })
 
-const PORT = process.env.PORT || 3000
+// ── Port: baca dari .env → PORT, default 3000 ──────
+const PORT = parseInt(process.env.PORT) || 3000
 
-// ──────────────────────────────────────────────
-// Middleware: simpan rawBody untuk validasi signature
-// ──────────────────────────────────────────────
+// ──────────────────────────────────────────────────
+// Middleware
+// ──────────────────────────────────────────────────
+// Simpan rawBody untuk validasi HMAC signature Saweria
 app.use((req, res, next) => {
   let data = ''
   req.on('data', chunk => { data += chunk })
-  req.on('end', () => { req.rawBody = data })
+  req.on('end',  () => { req.rawBody = data })
   next()
 })
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 app.use(cors())
 
-// ──────────────────────────────────────────────
-// Static files: overlay & dashboard (production)
-// ──────────────────────────────────────────────
-app.use('/overlay', express.static(path.join(__dirname, '../overlay')))
+// ──────────────────────────────────────────────────
+// Static files
+// ──────────────────────────────────────────────────
+app.use('/overlay',   express.static(path.join(__dirname, '../overlay')))
 app.use('/dashboard', express.static(path.join(__dirname, '../dashboard/dist')))
 
-// ──────────────────────────────────────────────
-// Webhook routes (public, no auth — gunakan signature)
-// ──────────────────────────────────────────────
+// ──────────────────────────────────────────────────
+// Webhook routes
+// ──────────────────────────────────────────────────
 app.post('/webhook/saweria',  saweriаWebhookHandler)
 app.post('/webhook/trakteer', trakteerWebhookHandler)
 
-// ──────────────────────────────────────────────
+// ──────────────────────────────────────────────────
 // API routes
-// ──────────────────────────────────────────────
+// ──────────────────────────────────────────────────
 app.use('/api', apiRouter)
 
-// Root
+// Root info
 app.get('/', (req, res) => {
   res.json({
-    name: 'Viewer Merusuh',
+    name:    'Viewer Merusuh',
     version: require('../package.json').version,
-    status: 'running',
+    port:    PORT,
+    status:  'running',
     endpoints: {
       webhook_saweria:  `POST /webhook/saweria`,
       webhook_trakteer: `POST /webhook/trakteer`,
@@ -71,9 +74,9 @@ app.get('/', (req, res) => {
   })
 })
 
-// ──────────────────────────────────────────────
+// ──────────────────────────────────────────────────
 // Socket.io — realtime ke dashboard & overlay
-// ──────────────────────────────────────────────
+// ──────────────────────────────────────────────────
 io.on('connection', (socket) => {
   console.log(`🔌 [Socket.io] Client terhubung: ${socket.id}`)
   socket.on('disconnect', () => {
@@ -81,13 +84,8 @@ io.on('connection', (socket) => {
   })
 })
 
-// Broadcast donasi ke semua client yang connect (dashboard & overlay)
-eventBus.on('donation', (donation) => {
-  io.emit('donation', donation)
-})
-
-// Broadcast efek yang aktif
-eventBus.on('effect', ({ effect, donation }) => {
+eventBus.on('donation', (donation) => { io.emit('donation', donation) })
+eventBus.on('effect',   ({ effect, donation }) => {
   io.emit('effect', {
     id:         effect.id,
     name:       effect.name,
@@ -102,32 +100,60 @@ eventBus.on('effect', ({ effect, donation }) => {
   })
 })
 
-// ──────────────────────────────────────────────
+// ──────────────────────────────────────────────────
 // Error handler
-// ──────────────────────────────────────────────
+// ──────────────────────────────────────────────────
 app.use((err, req, res, next) => {
   console.error('❌ Server error:', err.message)
   res.status(500).json({ success: false, error: 'Internal server error' })
 })
 
-// ──────────────────────────────────────────────
-// Start
-// ──────────────────────────────────────────────
+// ──────────────────────────────────────────────────
+// Start — dengan deteksi port bentrok yang jelas
+// ──────────────────────────────────────────────────
 server.listen(PORT, () => {
+  const line = '═'.repeat(47)
   console.log(`
-╔═══════════════════════════════════════════╗
-║         🎮  VIEWER MERUSUH v1.0.0         ║
-╠═══════════════════════════════════════════╣
-║  Server  : http://localhost:${PORT}           ║
-║  Overlay : http://localhost:${PORT}/overlay   ║
-║  API     : http://localhost:${PORT}/api       ║
-║                                           ║
-║  Webhook Saweria  : POST /webhook/saweria ║
-║  Webhook Trakteer : POST /webhook/trakteer║
-║                                           ║
-║  Mode: ${(process.env.NODE_ENV || 'development').padEnd(34)}║
-╚═══════════════════════════════════════════╝
+╔${line}╗
+║         🎮  VIEWER MERUSUH v1.0.0              ║
+╠${line}╣
+║  Port    : ${String(PORT).padEnd(37)}║
+║  Server  : http://localhost:${String(PORT).padEnd(19)}║
+║  Overlay : http://localhost:${PORT}/overlay          ║
+║  Dashboard: http://localhost:${PORT}/dashboard       ║
+║                                               ║
+║  Webhook Saweria  : POST /webhook/saweria     ║
+║  Webhook Trakteer : POST /webhook/trakteer    ║
+║                                               ║
+║  ⚙️  Ganti port: edit PORT= di file .env       ║
+║  Mode: ${(process.env.NODE_ENV || 'development').padEnd(39)}║
+╚${line}╝
   `)
+})
+
+// Handle port bentrok — tampilkan pesan yang jelas
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`
+╔══════════════════════════════════════════════╗
+║  ❌  PORT ${PORT} SUDAH DIPAKAI APLIKASI LAIN  ║
+╠══════════════════════════════════════════════╣
+║  Solusi: ganti PORT di file .env             ║
+║                                              ║
+║  Contoh port alternatif:                     ║
+║    PORT=3001  (paling umum)                  ║
+║    PORT=3030                                 ║
+║    PORT=4000                                 ║
+║    PORT=8080                                 ║
+║                                              ║
+║  Lalu jalankan ulang: npm run dev            ║
+╚══════════════════════════════════════════════╝
+    `)
+    process.exit(1)
+  } else {
+    console.error('❌ Server error:', err)
+    process.exit(1)
+  }
 })
 
 module.exports = { app, server, io }

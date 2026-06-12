@@ -128,6 +128,25 @@ TRAKTEER_API_KEY=api_key_kamu_dari_trakteer
 NODE_ENV=development
 ```
 
+**3b. Ganti port jika bentrok (opsional)**
+
+Buka file `.env` dan ganti nilai `PORT`:
+
+```env
+# Port default
+PORT=3000
+
+# Jika bentrok, ganti ke salah satu ini:
+PORT=3001
+PORT=3030
+PORT=4000
+PORT=8080
+```
+
+Jika port sudah dipakai aplikasi lain, server akan otomatis menampilkan pesan error dan saran port alternatif.
+
+Dashboard development (Vite) otomatis pakai `PORT+1` — jadi jika server di port 3001, dashboard dev buka di 3002.
+
 **4. Inisialisasi database**
 
 ```bash

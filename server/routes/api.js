@@ -124,6 +124,12 @@ router.post('/test/donation', (req, res) => {
   res.json({ success: true, message: `Simulasi donasi Rp ${parseInt(amount).toLocaleString('id-ID')} dikirim` })
 })
 
+// GET /api/queue — info antrian efek saat ini
+router.get('/queue', (req, res) => {
+  const { getQueueInfo } = require('../core/effectEngine')
+  res.json({ success: true, data: getQueueInfo() })
+})
+
 // GET /api/status — health check
 router.get('/status', (req, res) => {
   const db = getDB()

@@ -28,10 +28,15 @@ export default function DashboardPage({ lastDonation, lastEffect }) {
   const [feed, setFeed] = useState([])
   const feedRef = useRef([])
 
+  const [queue, setQueue] = useState({ length: 0, isProcessing: false, items: [] })
+
   useEffect(() => {
     api.getStatus().then(d => setStatus(d)).catch(() => {})
-    // Refresh status tiap 10 detik
-    const t = setInterval(() => api.getStatus().then(d => setStatus(d)).catch(() => {}), 10000)
+    api.getQueue().then(d => setQueue(d.data)).catch(() => {})
+    const t = setInterval(() => {
+      api.getStatus().then(d => setStatus(d)).catch(() => {})
+      api.getQueue().then(d => setQueue(d.data)).catch(() => {})
+    }, 3000)
     return () => clearInterval(t)
   }, [])
 
@@ -64,6 +69,7 @@ export default function DashboardPage({ lastDonation, lastEffect }) {
         <StatCard icon="💰" label="Total Donasi"     value={status?.totalDonations ?? '—'} color="var(--green)" />
         <StatCard icon="⏱️"  label="Uptime Server"   value={uptime} color="var(--amber)" />
         <StatCard icon="🟢" label="Status"           value={status ? 'Online' : '...'} color="var(--green)" />
+        <StatCard icon="⏳" label="Antrian Efek"     value={queue.length} color={queue.length > 0 ? 'var(--amber)' : 'var(--text-2)'} />
       </div>
 
       <div style={{ display: 'flex', gap: 16 }}>

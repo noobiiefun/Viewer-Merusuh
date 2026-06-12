@@ -2,7 +2,6 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Viewer Merusuh — Overlay</title>
 <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
 <style>
@@ -19,92 +18,89 @@
     justify-content: flex-end;
     align-items: flex-end;
     padding: 20px;
-    gap: 10px;
+    gap: 8px;
   }
 
+  /* Tiap notif adalah item TERPISAH — tidak digabung */
   .notif {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 12px;
-    background: rgba(10, 10, 20, 0.88);
-    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(8, 8, 18, 0.92);
+    border: 1px solid rgba(255,255,255,0.1);
     border-left: 4px solid #7c3aed;
     border-radius: 10px;
     padding: 12px 16px;
     max-width: 380px;
     width: 100%;
+    backdrop-filter: blur(10px);
     animation: slideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-    backdrop-filter: blur(8px);
+    overflow: hidden;
   }
-
   .notif.hiding {
-    animation: slideOut 0.4s ease-in forwards;
+    animation: slideOut 0.35s ease-in forwards;
   }
 
-  .notif-icon { font-size: 28px; line-height: 1; flex-shrink: 0; }
-
-  .notif-body { flex: 1; min-width: 0; }
-
-  .notif-title {
-    font-size: 13px;
-    font-weight: 700;
-    color: #a78bfa;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin-bottom: 2px;
-  }
-
-  .notif-donor {
-    font-size: 15px;
-    font-weight: 600;
-    color: #ffffff;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .notif-amount {
-    font-size: 13px;
-    color: #86efac;
-    font-weight: 500;
-  }
-
-  .notif-effect {
-    font-size: 12px;
-    color: #fbbf24;
-    margin-top: 4px;
-    font-weight: 500;
-  }
-
-  .notif-msg {
-    font-size: 12px;
-    color: rgba(255,255,255,0.55);
-    margin-top: 2px;
-    font-style: italic;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .progress-bar {
+  /* Antrian badge — tampil jika ada lebih dari 1 di queue */
+  .queue-badge {
     position: absolute;
-    bottom: 0;
-    left: 0;
+    top: 6px; right: 8px;
+    background: rgba(124,58,237,0.35);
+    color: #c4b5fd;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 99px;
+    border: 1px solid rgba(124,58,237,0.4);
+  }
+
+  .notif-icon  { font-size: 26px; line-height: 1; flex-shrink: 0; }
+  .notif-body  { flex: 1; min-width: 0; }
+
+  .notif-platform {
+    font-size: 10px; font-weight: 700;
+    color: #a78bfa; text-transform: uppercase;
+    letter-spacing: 0.1em; margin-bottom: 1px;
+  }
+  .notif-donor {
+    font-size: 15px; font-weight: 700; color: #fff;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .notif-amount {
+    font-size: 13px; color: #86efac; font-weight: 600; margin-top: 1px;
+  }
+  .notif-effect {
+    font-size: 12px; color: #fbbf24; font-weight: 600; margin-top: 4px;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .notif-effect::before { content: '⚡'; }
+  .notif-msg {
+    font-size: 11px; color: rgba(255,255,255,0.5);
+    margin-top: 2px; font-style: italic;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  /* Progress bar — menunjukkan sisa waktu notif */
+  .progress {
+    position: absolute;
+    bottom: 0; left: 0;
     height: 3px;
-    background: #7c3aed;
+    background: linear-gradient(90deg, #7c3aed, #a78bfa);
     border-radius: 0 0 0 10px;
-    animation: progress linear forwards;
+    animation: shrink linear forwards;
+    transform-origin: left;
   }
 
   @keyframes slideIn {
-    from { opacity: 0; transform: translateX(60px); }
-    to   { opacity: 1; transform: translateX(0); }
+    from { opacity: 0; transform: translateX(70px) scale(0.95); }
+    to   { opacity: 1; transform: translateX(0) scale(1); }
   }
   @keyframes slideOut {
-    from { opacity: 1; transform: translateX(0); }
-    to   { opacity: 0; transform: translateX(60px); }
+    from { opacity: 1; transform: translateX(0); max-height: 200px; margin-bottom: 0; }
+    to   { opacity: 0; transform: translateX(70px); max-height: 0; margin-bottom: -8px; }
   }
-  @keyframes progress {
+  @keyframes shrink {
     from { width: 100%; }
     to   { width: 0%; }
   }
@@ -114,66 +110,129 @@
 <div id="container"></div>
 
 <script>
-const container = document.getElementById('container')
+const container  = document.getElementById('container')
 const SERVER_URL = window.location.origin || 'http://localhost:3000'
-const socket = io(SERVER_URL)
+const socket     = io(SERVER_URL)
 
-const PLATFORM_ICONS = {
-  saweria:  '🧋',
-  trakteer: '☕',
-  test:     '🧪',
-  default:  '💜',
+// Durasi notif default (ms) — akan di-override dari config server
+let NOTIF_DURATION = 5000
+
+// Fetch config durasi dari server saat load
+async function loadConfig() {
+  try {
+    const res  = await fetch(SERVER_URL + '/api/config')
+    const data = await res.json()
+    if (data?.data?.notification_duration_ms) {
+      NOTIF_DURATION = parseInt(data.data.notification_duration_ms)
+    }
+  } catch (e) {
+    console.warn('Gagal load config, pakai default:', NOTIF_DURATION + 'ms')
+  }
+}
+loadConfig()
+
+// Re-fetch config tiap 30 detik (agar sinkron jika streamer ubah di dashboard)
+setInterval(loadConfig, 30000)
+
+const PLATFORM_ICONS = { saweria: '🧋', trakteer: '☕', test: '🧪', default: '💜' }
+
+function formatRp(n) {
+  return 'Rp ' + Number(n).toLocaleString('id-ID')
 }
 
-function formatRupiah(n) {
-  return 'Rp ' + n.toLocaleString('id-ID')
+// ── Queue visual overlay (terpisah dari queue server) ──
+// Tiap efek masuk = notif SENDIRI, tidak digabung
+const visualQueue = []
+let visualBusy    = false
+
+function enqueueVisual(data) {
+  visualQueue.push(data)
+  processVisualQueue()
 }
 
-function showNotif({ donation, effect }) {
-  const icon = PLATFORM_ICONS[donation.platform] || PLATFORM_ICONS.default
-  const duration = effect ? effect.durationMs + 1500 : 5000
+function processVisualQueue() {
+  // Tampilkan semua notif dalam antrian sekaligus tapi dengan offset waktu
+  // Setiap notif muncul 300ms setelah notif sebelumnya
+  visualQueue.forEach((data, i) => {
+    if (data._shown) return
+    data._shown = true
+    setTimeout(() => showNotif(data), i * 300)
+  })
+  // Bersihkan queue setelah dijadwalkan
+  setTimeout(() => {
+    visualQueue.length = 0
+  }, 500)
+}
+
+function showNotif(data) {
+  const { donation, effect, queuePos, queueTotal } = data
+  const icon     = PLATFORM_ICONS[donation.platform] || PLATFORM_ICONS.default
+  const duration = NOTIF_DURATION  // pakai durasi dari config dashboard
 
   const el = document.createElement('div')
   el.className = 'notif'
-  el.style.position = 'relative'
+
+  // Badge antrian jika ada lebih dari 1
+  const queueBadge = (queueTotal > 1)
+    ? `<div class="queue-badge">#${queuePos}/${queueTotal}</div>`
+    : ''
+
   el.innerHTML = `
+    ${queueBadge}
     <div class="notif-icon">${icon}</div>
     <div class="notif-body">
-      <div class="notif-title">${donation.platform.toUpperCase()}</div>
-      <div class="notif-donor">${donation.donatorName}</div>
-      <div class="notif-amount">${formatRupiah(donation.amount)}</div>
-      ${effect ? `<div class="notif-effect">🎮 ${effect.name}</div>` : ''}
-      ${donation.message ? `<div class="notif-msg">"${donation.message}"</div>` : ''}
+      <div class="notif-platform">${donation.platform}</div>
+      <div class="notif-donor">${escHtml(donation.donatorName)}</div>
+      <div class="notif-amount">${formatRp(donation.amount)}</div>
+      ${effect ? `<div class="notif-effect">${escHtml(effect.name)}</div>` : ''}
+      ${donation.message ? `<div class="notif-msg">"${escHtml(donation.message)}"</div>` : ''}
     </div>
-    <div class="progress-bar" style="animation-duration: ${duration}ms"></div>
+    <div class="progress" style="animation-duration:${duration}ms"></div>
   `
 
-  container.prepend(el)
+  // Sisipkan di atas (notif terbaru di atas)
+  container.insertBefore(el, container.firstChild)
 
-  // Auto remove
+  // Auto-remove setelah durasi
   setTimeout(() => {
     el.classList.add('hiding')
     setTimeout(() => el.remove(), 400)
   }, duration)
 
-  // Max 5 notif sekaligus
+  // Maksimal 6 notif tampil bersamaan — hapus yang paling lama
   const all = container.querySelectorAll('.notif')
-  if (all.length > 5) all[all.length - 1].remove()
+  if (all.length > 6) {
+    const oldest = all[all.length - 1]
+    oldest.classList.add('hiding')
+    setTimeout(() => oldest.remove(), 400)
+  }
 }
 
-// Terima event donation (tanpa efek yang cocok)
-socket.on('donation', (donation) => {
-  // Ditangani oleh event 'effect' jika ada efek
-  // Ini fallback jika tidak ada efek yang cocok
-})
+// Escape HTML untuk cegah XSS dari nama donatur
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+}
 
-// Terima event effect (donasi + efek aktif)
+// ── Terima event dari server ──
+// Setiap event 'effect' = SATU notif terpisah (server sudah handle queue-nya)
+let effectCount = 0
 socket.on('effect', (data) => {
-  showNotif({ donation: data.donation, effect: data })
+  effectCount++
+  enqueueVisual({
+    donation:   data.donation,
+    effect:     data,
+    queuePos:   effectCount,
+    queueTotal: 1,  // server yang atur urutan, overlay cukup tampilkan satu per satu
+  })
 })
 
-socket.on('connect', () => console.log('Overlay terhubung ke server'))
-socket.on('disconnect', () => console.log('Overlay terputus dari server'))
+// Reset counter tiap 10 menit
+setInterval(() => { effectCount = 0 }, 600000)
+
+socket.on('connect',    () => console.log('[VM Overlay] Terhubung ke server'))
+socket.on('disconnect', () => console.log('[VM Overlay] Terputus dari server'))
 </script>
 </body>
 </html>
