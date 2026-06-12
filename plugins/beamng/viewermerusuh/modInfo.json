@@ -1,0 +1,8 @@
+{
+  "name":        "Viewer Merusuh",
+  "version":     "1.0.0",
+  "description": "Plugin untuk integrasi Viewer Merusuh — viewer bisa merusuh saat streaming BeamNG.drive via donasi",
+  "author":      "Viewer Merusuh Contributors",
+  "license":     "MIT",
+  "dependencies": []
+}

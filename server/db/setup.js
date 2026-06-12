@@ -70,6 +70,15 @@ function setup() {
     [7, 'Steer Chaos',     'Steer kiri-kanan acak via controller',            10000, 19999, 'racing', 'vjoy', 'vjoy_random_steer', 5000, 0],
     [8, 'Drift Chaos',     'Gas penuh + steer chaos via controller',          20000, 49999, 'racing', 'vjoy', 'vjoy_drift_chaos',  8000, 0],
     [9, 'Disconnect Ctrl', 'Cabut-colok virtual controller sesaat',           15000, 29999, 'racing', 'vjoy', 'vjoy_disconnect',   2000, 0],
+    // ── Plugin: GTA 5 ──
+    [10, 'Wanted Naik',    'Tambah 3 bintang wanted (GTA 5 native)',         5000,  9999,  'gta5',   'plugin', 'gta5_wanted_up',    0,    0],
+    [11, 'Wanted Max',     'Langsung 6 bintang wanted (GTA 5 native)',       20000, 49999, 'gta5',   'plugin', 'gta5_wanted_max',   0,    0],
+    [12, 'Hujan Ledakan',  'Ledakan terus-menerus di sekitar player',        15000, 29999, 'gta5',   'plugin', 'gta5_explosion_rain', 8000, 0],
+    [13, 'Chaos GTA5',     'Wanted max + ledakan + NPC menyerang',           50000, null,  'gta5',   'plugin', 'gta5_chaos_mode',   15000, 0],
+    // ── Plugin: BeamNG ──
+    [14, 'Rem BeamNG',     'Rem mendadak (BeamNG native)',                   5000,  9999,  'beamng', 'plugin', 'beamng_brake',      3000, 0],
+    [15, 'Slow Motion',    'Waktu melambat 30% (BeamNG native)',             10000, 19999, 'beamng', 'plugin', 'beamng_slow_motion', 5000, 0],
+    [16, 'Chaos BeamNG',   'Gas + steer chaos + damage (BeamNG native)',     50000, null,  'beamng', 'plugin', 'beamng_chaos',      10000, 0],
   ]
   for (const row of defaults) seedEffect.run(...row)
 

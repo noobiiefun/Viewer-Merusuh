@@ -2,8 +2,8 @@
 import { useState, useEffect } from 'react'
 import { api } from '../utils/api'
 
-const GROUPS = ['racing', 'action', 'fps', 'survival', 'global']
-const GROUP_ICONS = { racing: '🏎️', action: '💥', fps: '🔫', survival: '🌲', global: '🌐' }
+const GROUPS = ['racing', 'action', 'fps', 'survival', 'global', 'gta5', 'beamng']
+const GROUP_ICONS = { racing: '🏎️', action: '💥', fps: '🔫', survival: '🌲', global: '🌐', gta5: '🎭', beamng: '🚗' }
 
 function formatRp(n) { return 'Rp ' + Number(n).toLocaleString('id-ID') }
 
@@ -151,8 +151,8 @@ export default function EffectsPage({ toast }) {
                   <td>
                     <div style={{display:'flex', flexDirection:'column', gap:3}}>
                       <code style={{ background: 'var(--surface2)', padding: '2px 6px', borderRadius: 4, fontSize: 12 }}>{e.action_key}</code>
-                      <span style={{fontSize:10, color: e.adapter==='vjoy' ? 'var(--amber)' : 'var(--text-3)'}}>
-                        {e.adapter === 'vjoy' ? '🕹️ vJoy' : '🖥️ AHK'}
+                      <span style={{fontSize:10, color: e.adapter==='vjoy' ? 'var(--amber)' : e.adapter==='plugin' ? 'var(--green)' : 'var(--text-3)'}}>
+                        {e.adapter === 'vjoy' ? '🕹️ vJoy' : e.adapter === 'plugin' ? '🎮 Plugin' : '🖥️ AHK'}
                       </span>
                     </div>
                   </td>
@@ -219,6 +219,7 @@ export default function EffectsPage({ toast }) {
                     onChange={e => setForm(f => ({ ...f, adapter: e.target.value, action_key: '' }))}>
                     <option value="ahk">🖥️ AutoHotkey (keyboard/mouse)</option>
                     <option value="vjoy">🕹️ vJoy / ViGEm (controller)</option>
+                    <option value="plugin">🎮 Plugin Native (GTA5 / BeamNG)</option>
                   </select>
                 </div>
               </div>
@@ -242,6 +243,11 @@ export default function EffectsPage({ toast }) {
                 {form.adapter === 'vjoy' && (
                   <p style={{ color: 'var(--amber)', fontSize: 11, marginTop: 6 }}>
                     ⚠️ vJoy memerlukan ViGEmBus driver terinstall di Windows. <a href="https://github.com/nefarius/ViGEmBus/releases" target="_blank" style={{color:'var(--primary)'}}>Download di sini</a>
+                  </p>
+                )}
+                {form.adapter === 'plugin' && (
+                  <p style={{ color: 'var(--amber)', fontSize: 11, marginTop: 6 }}>
+                    ⚠️ Plugin native memerlukan mod terinstall di game. Lihat folder <code>plugins/</code> di project.
                   </p>
                 )}
               </div>

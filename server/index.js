@@ -15,7 +15,8 @@ require('./adapters/vjoy')      // Aktifkan vJoy/ViGEm virtual gamepad adapter
 
 const { saweriаWebhookHandler } = require('./adapters/saweria')
 const { trakteerWebhookHandler } = require('./adapters/trakteer')
-const apiRouter  = require('./routes/api')
+const apiRouter    = require('./routes/api')
+const pluginRouter = require('./routes/plugin')
 
 const app    = express()
 const server = http.createServer(app)
@@ -56,6 +57,7 @@ app.post('/webhook/trakteer', trakteerWebhookHandler)
 // API routes
 // ──────────────────────────────────────────────────
 app.use('/api', apiRouter)
+app.use('/api/plugin', pluginRouter)
 
 // Root info
 app.get('/', (req, res) => {

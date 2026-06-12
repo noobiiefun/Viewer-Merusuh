@@ -183,7 +183,45 @@ router.get('/actions', (req, res) => {
     action_key: key, adapter: 'vjoy',
     group: 'racing', description: getVjoyDesc(key),
   }))
-  res.json({ success: true, data: [...ahk, ...vjoy] })
+  // Plugin actions — langsung hardcode karena plugin tidak ada registry JS
+  const pluginActions = [
+    // GTA 5
+    { action_key: 'gta5_wanted_up',      adapter: 'plugin', group: 'gta5',   description: 'Tambah 3 bintang wanted' },
+    { action_key: 'gta5_wanted_max',     adapter: 'plugin', group: 'gta5',   description: 'Langsung 6 bintang' },
+    { action_key: 'gta5_wanted_clear',   adapter: 'plugin', group: 'gta5',   description: 'Hapus semua wanted' },
+    { action_key: 'gta5_explosion',      adapter: 'plugin', group: 'gta5',   description: 'Ledakan di sekitar player' },
+    { action_key: 'gta5_explosion_rain', adapter: 'plugin', group: 'gta5',   description: 'Hujan ledakan' },
+    { action_key: 'gta5_vehicle_brake',  adapter: 'plugin', group: 'gta5',   description: 'Rem mendadak kendaraan' },
+    { action_key: 'gta5_vehicle_boost',  adapter: 'plugin', group: 'gta5',   description: 'Boost kecepatan 3x' },
+    { action_key: 'gta5_vehicle_flip',   adapter: 'plugin', group: 'gta5',   description: 'Balik kendaraan' },
+    { action_key: 'gta5_vehicle_horn',   adapter: 'plugin', group: 'gta5',   description: 'Spam klakson' },
+    { action_key: 'gta5_vehicle_engine_off', adapter: 'plugin', group: 'gta5', description: 'Matikan mesin sementara' },
+    { action_key: 'gta5_ragdoll',        adapter: 'plugin', group: 'gta5',   description: 'Karakter jatuh ragdoll' },
+    { action_key: 'gta5_super_jump',     adapter: 'plugin', group: 'gta5',   description: 'Super jump' },
+    { action_key: 'gta5_drunk',          adapter: 'plugin', group: 'gta5',   description: 'Efek mabuk' },
+    { action_key: 'gta5_give_weapon',    adapter: 'plugin', group: 'gta5',   description: 'Beri senjata random' },
+    { action_key: 'gta5_remove_weapon',  adapter: 'plugin', group: 'gta5',   description: 'Ambil semua senjata' },
+    { action_key: 'gta5_weather_rain',   adapter: 'plugin', group: 'gta5',   description: 'Cuaca hujan lebat' },
+    { action_key: 'gta5_weather_snow',   adapter: 'plugin', group: 'gta5',   description: 'Cuaca salju' },
+    { action_key: 'gta5_weather_thunder',adapter: 'plugin', group: 'gta5',   description: 'Cuaca badai petir' },
+    { action_key: 'gta5_time_night',     adapter: 'plugin', group: 'gta5',   description: 'Paksa malam hari' },
+    { action_key: 'gta5_npc_attack',     adapter: 'plugin', group: 'gta5',   description: '3 NPC menyerang' },
+    { action_key: 'gta5_spawn_cop',      adapter: 'plugin', group: 'gta5',   description: 'Spawn polisi' },
+    { action_key: 'gta5_spawn_enemy',    adapter: 'plugin', group: 'gta5',   description: 'Spawn musuh bersenjata' },
+    { action_key: 'gta5_chaos_mode',     adapter: 'plugin', group: 'gta5',   description: 'Semua efek chaos' },
+    // BeamNG
+    { action_key: 'beamng_brake',        adapter: 'plugin', group: 'beamng', description: 'Rem mendadak' },
+    { action_key: 'beamng_throttle',     adapter: 'plugin', group: 'beamng', description: 'Gas penuh paksa' },
+    { action_key: 'beamng_random_steer', adapter: 'plugin', group: 'beamng', description: 'Steer acak chaos' },
+    { action_key: 'beamng_handbrake',    adapter: 'plugin', group: 'beamng', description: 'Tahan handbrake' },
+    { action_key: 'beamng_engine_off',   adapter: 'plugin', group: 'beamng', description: 'Matikan mesin' },
+    { action_key: 'beamng_explosion',    adapter: 'plugin', group: 'beamng', description: 'Ledakan di sekitar' },
+    { action_key: 'beamng_slow_motion',  adapter: 'plugin', group: 'beamng', description: 'Slow motion 30%' },
+    { action_key: 'beamng_vehicle_reset',adapter: 'plugin', group: 'beamng', description: 'Reset/recovery kendaraan' },
+    { action_key: 'beamng_random_damage',adapter: 'plugin', group: 'beamng', description: 'Kerusakan acak' },
+    { action_key: 'beamng_chaos',        adapter: 'plugin', group: 'beamng', description: 'Semua efek chaos' },
+  ]
+  res.json({ success: true, data: [...ahk, ...vjoy, ...pluginActions] })
 })
 
 function getVjoyDesc(key) {

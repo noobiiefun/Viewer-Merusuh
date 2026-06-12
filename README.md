@@ -313,7 +313,7 @@ socket.on('effect', (data) => {
 - [x] **Phase 2** — Game adapters AutoHotkey (Racing, Action/GTA5, FPS, Survival) + sistem grup modular
 - [x] **Phase 3** — Dashboard web React (manajemen efek, log donasi, konfigurasi, test donasi)
 - [x] **Phase 4** — vJoy/ViGEm virtual gamepad adapter (virtual Xbox 360 controller, 10 aksi racing)
-- [ ] **Phase 5** — Plugin native GTA 5 & BeamNG.drive
+- [x] **Phase 5** — Plugin native GTA 5 (23 efek via SHVDN C#) & BeamNG.drive (10 efek via Lua)
 - [ ] **Phase 6** — Adapter tambahan: Streamlabs, Ko-fi, Donorbox
 - [ ] **Phase 7** — Installer/exe untuk non-developer
 
@@ -398,7 +398,42 @@ AHK_EXE_PATH=C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe
 | `drop_item` | Drop item berulang | G |
 | `camera_shake` | Kamera goyang | Mouse chaos |
 
-### vJoy / ViGEm Virtual Gamepad (Phase 4)
+### Plugin Native Game (Phase 5)
+
+Plugin yang berjalan **di dalam game** untuk kontrol yang lebih presisi dan mendalam dibanding keyboard inject.
+
+### Cara Kerja
+
+```
+Server VM ←── Plugin polling GET /api/plugin/pending?game=gta5
+           ──► Plugin eksekusi native API game
+           ──► Plugin lapor POST /api/plugin/done
+```
+
+### GTA 5 — ScriptHookV .NET (C#)
+
+23 efek native menggunakan SHVDN API: wanted level, ledakan, cuaca, kendaraan, NPC, dan lainnya.
+
+Instalasi: copy `plugins/gta5/ViewerMerusuh.cs` ke folder `Grand Theft Auto V/scripts/`
+Panduan lengkap: [`plugins/gta5/README.md`](plugins/gta5/README.md)
+
+> ⚠️ Hanya untuk Story Mode. Jangan digunakan di GTA Online.
+
+### BeamNG.drive — Lua Extension
+
+10 efek native menggunakan BeamNG Lua API: rem, gas, steer, slow motion, kerusakan acak, dan lainnya.
+
+Instalasi: copy folder `plugins/beamng/viewermerusuh/` ke `Documents/BeamNG.drive/mods/unpacked/`
+Panduan lengkap: [`plugins/beamng/README.md`](plugins/beamng/README.md)
+
+### Menambah di Dashboard
+
+Saat menambah efek baru, pilih:
+- **Adapter**: `Plugin Native (GTA5 / BeamNG)`
+- **Game Target**: `gta5` atau `beamng`
+- **Action Key**: pilih dari daftar action yang tersedia
+
+## vJoy / ViGEm Virtual Gamepad (Phase 4)
 
 Untuk racing game yang menggunakan controller (bukan keyboard), Viewer Merusuh bisa mengendalikan axis dan tombol controller secara programatik via **ViGEmBus** — driver virtual controller resmi dari Nefarius.
 
