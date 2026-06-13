@@ -15,8 +15,10 @@ require('./adapters/vjoy')      // Aktifkan vJoy/ViGEm virtual gamepad adapter
 
 const { saweriаWebhookHandler } = require('./adapters/saweria')
 const { trakteerWebhookHandler } = require('./adapters/trakteer')
-const apiRouter    = require('./routes/api')
-const pluginRouter = require('./routes/plugin')
+const apiRouter     = require('./routes/api')
+const pluginRouter  = require('./routes/plugin')
+const envRouter     = require('./routes/env')
+const testingRouter = require('./routes/testing')
 
 const app    = express()
 const server = http.createServer(app)
@@ -57,7 +59,9 @@ app.post('/webhook/trakteer', trakteerWebhookHandler)
 // API routes
 // ──────────────────────────────────────────────────
 app.use('/api', apiRouter)
-app.use('/api/plugin', pluginRouter)
+app.use('/api/plugin',  pluginRouter)
+app.use('/api/env',     envRouter)
+app.use('/api/testing', testingRouter)
 
 // Root info
 app.get('/', (req, res) => {
@@ -87,7 +91,8 @@ io.on('connection', (socket) => {
   })
 })
 
-eventBus.on('donation', (donation) => { io.emit('donation', donation) })
+eventBus.on('donation',  (donation) => { io.emit('donation', donation) })
+eventBus.on('test_log',  (log)      => { io.emit('test_log', log) })
 eventBus.on('effect',   ({ effect, donation }) => {
   io.emit('effect', {
     id:         effect.id,

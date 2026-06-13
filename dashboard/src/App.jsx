@@ -3,7 +3,9 @@ import { useState } from 'react'
 import Sidebar from './components/Sidebar'
 import ToastContainer from './components/ToastContainer'
 import DashboardPage from './pages/DashboardPage'
-import VjoyPage from './pages/VjoyPage'
+import VjoyPage     from './pages/VjoyPage'
+import TestingPage  from './pages/TestingPage'
+import SecretsPage  from './pages/SecretsPage'
 import EffectsPage from './pages/EffectsPage'
 import LogsPage from './pages/LogsPage'
 import ConfigPage from './pages/ConfigPage'
@@ -12,14 +14,16 @@ import { useToast } from './hooks/useToast'
 
 export default function App() {
   const [page, setPage] = useState('dashboard')
-  const { connected, lastDonation, lastEffect } = useSocket()
+  const { connected, lastDonation, lastEffect, lastTestLog } = useSocket()
   const { toasts, toast } = useToast()
 
   const content = {
     dashboard: <DashboardPage lastDonation={lastDonation} lastEffect={lastEffect} />,
     effects:   <EffectsPage toast={toast} />,
     logs:      <LogsPage lastDonation={lastDonation} />,
-    vjoy:      <VjoyPage toast={toast} />,
+    vjoy:      <VjoyPage    toast={toast} />,
+    testing:   <TestingPage toast={toast} lastEffect={lastEffect} lastTestLog={lastTestLog} />,
+    secrets:   <SecretsPage toast={toast} />,
     config:    <ConfigPage toast={toast} />,
   }
 

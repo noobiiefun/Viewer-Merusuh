@@ -6,9 +6,10 @@ const BASE = import.meta.env.DEV ? 'http://localhost:3000' : window.location.ori
 
 export function useSocket() {
   const socketRef = useRef(null)
-  const [connected, setConnected] = useState(false)
+  const [connected, setConnected]     = useState(false)
   const [lastDonation, setLastDonation] = useState(null)
-  const [lastEffect, setLastEffect] = useState(null)
+  const [lastEffect, setLastEffect]     = useState(null)
+  const [lastTestLog, setLastTestLog]   = useState(null)
 
   useEffect(() => {
     const socket = io(BASE, { transports: ['websocket'] })
@@ -16,11 +17,12 @@ export function useSocket() {
 
     socket.on('connect',    () => setConnected(true))
     socket.on('disconnect', () => setConnected(false))
-    socket.on('donation',   (d) => setLastDonation({ ...d, _ts: Date.now() }))
-    socket.on('effect',     (e) => setLastEffect({ ...e, _ts: Date.now() }))
+    socket.on('donation',  (d) => setLastDonation({ ...d, _ts: Date.now() }))
+    socket.on('effect',    (e) => setLastEffect({ ...e, _ts: Date.now() }))
+    socket.on('test_log',  (l) => setLastTestLog({ ...l, _ts: Date.now() }))
 
     return () => socket.disconnect()
   }, [])
 
-  return { connected, lastDonation, lastEffect }
+  return { connected, lastDonation, lastEffect, lastTestLog }
 }

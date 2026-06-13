@@ -35,4 +35,18 @@ export const api = {
   getStatus:     ()      => request('GET', '/api/status'),
   getQueue:      ()      => request('GET', '/api/queue'),
   testDonation:  (body)  => request('POST', '/api/test/donation', body),
+
+  // Testing area
+  testingDonate:    (body) => request('POST',   '/api/testing/donate', body),
+  testingTrigger:   (body) => request('POST',   '/api/testing/trigger', body),
+  testingPreview:   (amt)  => request('GET',    `/api/testing/preview?amount=${amt}`),
+  testingLogs:      ()     => request('GET',    '/api/testing/logs'),
+  testingClearLogs: ()     => request('DELETE', '/api/testing/logs'),
+  testingPlatforms: ()     => request('GET',    '/api/testing/platforms'),
+
+  // Env editor
+  getEnv:             ()      => request('GET', '/api/env'),
+  saveEnv:            (body)  => request('PUT', '/api/env', body),
+  getEnvStatus:       ()      => request('GET', '/api/env/status'),
+  generateSecret:     ()      => request('POST', '/api/env/generate-secret'),
 }

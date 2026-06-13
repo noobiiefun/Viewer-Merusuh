@@ -314,7 +314,7 @@ socket.on('effect', (data) => {
 - [x] **Phase 3** — Dashboard web React (manajemen efek, log donasi, konfigurasi, test donasi)
 - [x] **Phase 4** — vJoy/ViGEm virtual gamepad adapter (virtual Xbox 360 controller, 10 aksi racing)
 - [x] **Phase 5** — Plugin native GTA 5 (23 efek via SHVDN C#) & BeamNG.drive (10 efek via Lua)
-- [ ] **Phase 6** — Adapter tambahan: Streamlabs, Ko-fi, Donorbox
+- [x] **Phase 6** — Testing Area (simulasi donasi + direct trigger + preview efek) & Secrets Editor (UI untuk .env tanpa buka file)
 - [ ] **Phase 7** — Installer/exe untuk non-developer
 
 ---

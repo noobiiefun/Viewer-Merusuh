@@ -2,8 +2,10 @@
 const NAV = [
   { id: 'dashboard', icon: '📊', label: 'Dashboard' },
   { id: 'effects',   icon: '⚡', label: 'Efek' },
+  { id: 'testing',   icon: '🧪', label: 'Testing Area' },
   { id: 'logs',      icon: '📋', label: 'Log Donasi' },
   { id: 'vjoy',      icon: '🕹️', label: 'vJoy Controller' },
+  { id: 'secrets',   icon: '🔐', label: 'Secrets & Config' },
   { id: 'config',    icon: '⚙️',  label: 'Konfigurasi' },
 ]
 
