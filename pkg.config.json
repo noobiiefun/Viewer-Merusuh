@@ -1,0 +1,24 @@
+{
+  "name": "viewer-merusuh",
+  "version": "1.0.0",
+  "description": "Viewer Merusuh — bundled executable",
+  "pkg": {
+    "scripts": [
+      "server/**/*.js",
+      "installer/setup.js"
+    ],
+    "assets": [
+      "server/**/*",
+      "overlay/**/*",
+      "dashboard/dist/**/*",
+      "adapters/**/*",
+      "plugins/**/*",
+      "package.json",
+      ".env.example"
+    ],
+    "targets": [
+      "node18-win-x64"
+    ],
+    "outputPath": "dist-exe"
+  }
+}

@@ -5,22 +5,10 @@
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
-    "dev": "nodemon server/index.js",
-    "setup": "node server/db/setup.js",
-    "dev:dashboard": "cd dashboard && npm run dev",
-    "build": "cd dashboard && npm install && npm run build"
+    "setup": "node installer/setup.js",
+    "build": "cd dashboard && npm install && npm run build",
+    "package": "node installer/make-release.js"
   },
-  "keywords": [
-    "streaming",
-    "donation",
-    "game",
-    "tiktok",
-    "saweria",
-    "trakteer",
-    "crowd-control"
-  ],
-  "author": "",
-  "license": "MIT",
   "dependencies": {
     "better-sqlite3": "^9.4.3",
     "cors": "^2.8.5",
@@ -28,9 +16,6 @@
     "express": "^4.18.3",
     "socket.io": "^4.7.4",
     "vigemclient": "^1.5.3"
-  },
-  "devDependencies": {
-    "nodemon": "^3.1.0"
   },
   "optionalDependencies": {
     "vigemclient": "^1.5.3"

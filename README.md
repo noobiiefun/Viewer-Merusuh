@@ -15,6 +15,56 @@
 
 ---
 
+## Instalasi untuk Non-Developer (Phase 7)
+
+Tidak perlu coding! Cukup ikuti langkah berikut:
+
+### Langkah 1 — Prasyarat
+- Download dan install **Node.js LTS** dari https://nodejs.org
+- Restart PC setelah install
+
+### Langkah 2 — Setup Pertama
+```
+Double-click: SETUP.bat
+```
+Script ini otomatis:
+- Install semua dependencies
+- Buat database SQLite
+- Buat file `.env` dari template
+- Build dashboard React
+
+### Langkah 3 — Mulai Streaming
+```
+Double-click: START.bat
+```
+Browser otomatis terbuka ke Dashboard. Setup Wizard akan muncul untuk panduan konfigurasi awal.
+
+### File Installer
+
+| File | Fungsi |
+|------|--------|
+| `SETUP.bat` | Setup pertama kali (jalankan sekali) |
+| `START.bat` | Mulai server (jalankan sebelum streaming) |
+| `STOP.bat` | Matikan server |
+| `UPDATE.bat` | Update ke versi terbaru dari GitHub |
+| `README_INSTALL.txt` | Instruksi lengkap offline |
+
+### Build Release untuk Distribusi
+
+```bash
+# Build dashboard dulu
+npm run build
+
+# Buat ZIP release
+node installer/make-release.js
+
+# Output: dist/viewer-merusuh-v1.0.0.zip
+```
+
+Upload ZIP ke GitHub Releases — user tinggal extract dan double-click `SETUP.bat`.
+
+---
+
 ## Apa itu Viewer Merusuh?
 
 Viewer Merusuh adalah alternatif open-source dari Crowd Control yang **bebas platform donasi dan bebas platform streaming**. Viewer bisa mengirim donasi (lewat Saweria, Trakteer, dan platform lainnya) untuk memicu aksi dalam game yang sedang dimainkan streamer secara real-time.
@@ -315,7 +365,7 @@ socket.on('effect', (data) => {
 - [x] **Phase 4** — vJoy/ViGEm virtual gamepad adapter (virtual Xbox 360 controller, 10 aksi racing)
 - [x] **Phase 5** — Plugin native GTA 5 (23 efek via SHVDN C#) & BeamNG.drive (10 efek via Lua)
 - [x] **Phase 6** — Testing Area (simulasi donasi + direct trigger + preview efek) & Secrets Editor (UI untuk .env tanpa buka file)
-- [ ] **Phase 7** — Installer/exe untuk non-developer
+- [x] **Phase 7** — Installer Windows (SETUP.bat, START.bat, STOP.bat, UPDATE.bat) + Setup Wizard dashboard + make-release.js
 
 ---
 
