@@ -5,10 +5,28 @@
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
+    "dev": "nodemon server/index.js",
     "setup": "node installer/setup.js",
+    "dev:dashboard": "cd dashboard && npm run dev",
     "build": "cd dashboard && npm install && npm run build",
-    "package": "node installer/make-release.js"
+    "build:exe": "npm run build && pkg server/index.js --config pkg.config.json --output dist-exe/viewer-merusuh.exe",
+    "package": "node installer/make-release.js",
+    "postinstall": "node installer/postinstall.js",
+    "electron:dev": "electron .",
+    "electron:build": "node build-electron.js",
+    "build:full": "npm run build && npm run electron:build"
   },
+  "keywords": [
+    "streaming",
+    "donation",
+    "game",
+    "tiktok",
+    "saweria",
+    "trakteer",
+    "crowd-control"
+  ],
+  "author": "",
+  "license": "MIT",
   "dependencies": {
     "better-sqlite3": "^9.4.3",
     "cors": "^2.8.5",
@@ -17,7 +35,16 @@
     "socket.io": "^4.7.4",
     "vigemclient": "^1.5.3"
   },
+  "devDependencies": {
+    "nodemon": "^3.1.0",
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1",
+    "concurrently": "^8.2.2"
+  },
   "optionalDependencies": {
     "vigemclient": "^1.5.3"
+  },
+  "bin": {
+    "viewer-merusuh": "server/index.js"
   }
 }

@@ -15,6 +15,25 @@
 
 ---
 
+## Download & Install (Untuk User)
+
+> Tidak perlu coding sama sekali!
+
+### Opsi A — Installer .exe (Recommended)
+
+1. Download `viewer-merusuh-setup-x.x.x.exe` dari [GitHub Releases](https://github.com/username/viewer-merusuh/releases)
+2. Jalankan installer → Next → Next → Install → Finish
+3. Viewer Merusuh otomatis terbuka
+4. Setup Wizard akan muncul untuk panduan konfigurasi
+
+### Opsi B — Portable .exe
+
+1. Download `viewer-merusuh-x.x.x-portable.exe`
+2. Letakkan di folder mana saja
+3. Double-click untuk jalankan
+
+### Opsi C — Manual (dari source)
+
 ## Instalasi untuk Non-Developer (Phase 7)
 
 Tidak perlu coding! Cukup ikuti langkah berikut:
@@ -365,9 +384,22 @@ socket.on('effect', (data) => {
 - [x] **Phase 4** — vJoy/ViGEm virtual gamepad adapter (virtual Xbox 360 controller, 10 aksi racing)
 - [x] **Phase 5** — Plugin native GTA 5 (23 efek via SHVDN C#) & BeamNG.drive (10 efek via Lua)
 - [x] **Phase 6** — Testing Area (simulasi donasi + direct trigger + preview efek) & Secrets Editor (UI untuk .env tanpa buka file)
-- [x] **Phase 7** — Installer Windows (SETUP.bat, START.bat, STOP.bat, UPDATE.bat) + Setup Wizard dashboard + make-release.js
+- [x] **Phase 7** — Installer Windows: SETUP.bat + Setup Wizard + Electron .exe installer (installer + portable)
 
 ---
+
+## Build .exe untuk Developer
+
+```bash
+# Build installer dan portable .exe sekaligus
+node build-electron.js
+
+# Output:
+# electron/dist-electron/viewer-merusuh-setup-1.0.0.exe    ← installer
+# electron/dist-electron/viewer-merusuh-1.0.0-portable.exe ← portable
+```
+
+Panduan lengkap: [`docs/BUILD_ELECTRON.md`](docs/BUILD_ELECTRON.md)
 
 ## Dashboard Web
 

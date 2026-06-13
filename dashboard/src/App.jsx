@@ -1,6 +1,7 @@
 // dashboard/src/App.jsx
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Sidebar from './components/Sidebar'
+import SetupWizard from './components/SetupWizard'
 import ToastContainer from './components/ToastContainer'
 import DashboardPage from './pages/DashboardPage'
 import VjoyPage     from './pages/VjoyPage'
@@ -13,7 +14,18 @@ import { useSocket } from './hooks/useSocket'
 import { useToast } from './hooks/useToast'
 
 export default function App() {
-  const [page, setPage] = useState('dashboard')
+  const [page, setPage]           = useState('dashboard')
+  const [showWizard, setShowWizard] = useState(false)
+
+  // Cek apakah wizard perlu ditampilkan (first-time atau config belum lengkap)
+  useEffect(() => {
+    fetch('/api/env/status')
+      .then(r => r.json())
+      .then(data => {
+        if (!data.envExists || !data.isReady) setShowWizard(true)
+      })
+      .catch(() => {})
+  }, [])
   const { connected, lastDonation, lastEffect, lastTestLog } = useSocket()
   const { toasts, toast } = useToast()
 
@@ -28,6 +40,13 @@ export default function App() {
   }
 
   return (
+    <>
+    {showWizard && (
+      <SetupWizard
+        onComplete={() => setShowWizard(false)}
+        currentPort={3000}
+      />
+    )}
     <div style={{ display: 'flex', minHeight: '100vh' }}>
       <Sidebar page={page} onNav={setPage} connected={connected} />
       <main style={{ flex: 1, padding: 28, overflowY: 'auto', maxHeight: '100vh' }}>
@@ -35,5 +54,6 @@ export default function App() {
       </main>
       <ToastContainer toasts={toasts} />
     </div>
+    </>
   )
 }
