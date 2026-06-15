@@ -160,7 +160,36 @@ npm run electron:dev
 
 ---
 
+## Cara Build (Updated)
+
+```bash
+# Cukup satu perintah dari root folder project:
+node build-electron.js
+```
+
+### Kenapa tidak perlu Python atau Visual C++?
+
+`better-sqlite3` (native module) hanya perlu di-compile **sekali** saat `npm install` di root project. Script `build-electron.js` menggunakan `node_modules` yang sudah ada di root — **tidak menginstall ulang** di subfolder `electron/`. Jadi tidak perlu Python, MSVC, atau build tools untuk build .exe.
+
+---
+
 ## Troubleshooting
+
+**Error: `gyp ERR! find Python` / `better-sqlite3 compile failed`**
+
+Ini terjadi jika `node_modules` di folder `electron/` sudah ada dari percobaan sebelumnya.
+Solusi:
+```bash
+# Hapus node_modules di subfolder electron
+rd /s /q electron\node_modules
+
+# Jalankan build ulang
+node build-electron.js
+```
+
+Script build sudah pakai `--ignore-scripts` saat install di folder `electron/` agar `better-sqlite3` tidak di-compile ulang di sana.
+
+---
 
 **`Error: spawn electron ENOENT`**
 ```bash

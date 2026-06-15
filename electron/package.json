@@ -1,121 +1,14 @@
 {
-  "name": "viewer-merusuh",
+  "name": "viewer-merusuh-electron",
   "version": "1.0.0",
-  "description": "Platform interaktif untuk livestreamer — viewer bisa merusuh saat streaming game via donasi",
-  "author": "Viewer Merusuh Contributors",
-  "license": "MIT",
-  "main": "electron/main.js",
-  "homepage": "https://github.com/username/viewer-merusuh",
+  "description": "Electron wrapper untuk Viewer Merusuh",
+  "private": true,
   "scripts": {
-    "electron:dev":   "electron .",
-    "electron:build": "electron-builder build --win",
-    "electron:build:all": "electron-builder build --win --mac --linux",
-    "build:full":     "npm run build:dashboard && npm run electron:build",
-    "build:dashboard": "cd dashboard && npm install && npm run build"
-  },
-  "build": {
-    "appId":       "com.viewermerusuh.app",
-    "productName": "Viewer Merusuh",
-    "copyright":   "MIT License",
-    "icon":        "electron/assets/icon.png",
-
-    "directories": {
-      "output":    "dist-electron",
-      "buildResources": "electron/assets"
-    },
-
-    "files": [
-      "electron/**/*",
-      "server/**/*",
-      "dashboard/dist/**/*",
-      "overlay/**/*",
-      "adapters/**/*",
-      "plugins/**/*",
-      "docs/**/*",
-      ".env.example",
-      "package.json"
-    ],
-
-    "extraResources": [
-      {
-        "from": "adapters",
-        "to":   "app/adapters",
-        "filter": ["**/*"]
-      },
-      {
-        "from": "plugins",
-        "to":   "app/plugins",
-        "filter": ["**/*"]
-      },
-      {
-        "from": "overlay",
-        "to":   "app/overlay",
-        "filter": ["**/*"]
-      }
-    ],
-
-    "asar": true,
-    "asarUnpack": [
-      "server/db/**",
-      "node_modules/better-sqlite3/**"
-    ],
-
-    "win": {
-      "target": [
-        {
-          "target": "nsis",
-          "arch":   ["x64"]
-        },
-        {
-          "target": "portable",
-          "arch":   ["x64"]
-        }
-      ],
-      "icon":            "electron/assets/icon.ico",
-      "requestedExecutionLevel": "asInvoker"
-    },
-
-    "nsis": {
-      "oneClick":              false,
-      "allowToChangeInstallationDirectory": true,
-      "allowElevation":        true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName":          "Viewer Merusuh",
-      "uninstallDisplayName":  "Viewer Merusuh",
-      "installerIcon":         "electron/assets/icon.ico",
-      "uninstallerIcon":       "electron/assets/icon.ico",
-      "installerHeaderIcon":   "electron/assets/icon.ico",
-      "include":               "electron/scripts/installer.nsh",
-      "license":               "LICENSE",
-      "language":              "1057"
-    },
-
-    "portable": {
-      "artifactName": "viewer-merusuh-${version}-portable.exe"
-    },
-
-    "publish": {
-      "provider": "github",
-      "owner":    "username",
-      "repo":     "viewer-merusuh",
-      "releaseType": "release"
-    }
-  },
-
-  "dependencies": {
-    "better-sqlite3": "^9.4.3",
-    "cors":           "^2.8.5",
-    "dotenv":         "^16.4.5",
-    "express":        "^4.18.3",
-    "socket.io":      "^4.7.4"
-  },
-  "optionalDependencies": {
-    "vigemclient":    "^1.5.3"
+    "dev": "electron ../.",
+    "build": "electron-builder build --win --config ../electron-builder.config.js"
   },
   "devDependencies": {
-    "electron":         "^28.0.0",
-    "electron-builder": "^24.9.1",
-    "concurrently":     "^8.2.2"
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1"
   }
 }

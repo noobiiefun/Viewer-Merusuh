@@ -14,8 +14,10 @@ const net          = require('net')
 
 // ── Path resolution (works di dev dan setelah di-package) ─────────────
 const IS_PACKAGED  = app.isPackaged
+// Saat dev: ROOT = folder project (satu level di atas electron/)
+// Saat packaged: ROOT = folder resources di dalam .exe
 const ROOT         = IS_PACKAGED
-  ? path.join(process.resourcesPath, 'app')
+  ? process.resourcesPath
   : path.join(__dirname, '..')
 
 const SERVER_ENTRY = path.join(ROOT, 'server', 'index.js')
