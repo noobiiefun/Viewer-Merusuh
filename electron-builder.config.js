@@ -3,8 +3,9 @@
 
 module.exports = {
   appId:       'com.viewermerusuh.app',
-  productName: 'Viewer Merusuh',
-  copyright:   'MIT License',
+  productName:     'Viewer Merusuh',
+  copyright:       'MIT License',
+  electronVersion: '28.3.3',  // harus exact, tanpa ^ atau ~
 
   // CATATAN: 'main' TIDAK valid di electron-builder config!
   // Entry point diambil dari package.json -> "main"
