@@ -175,19 +175,41 @@ node build-electron.js
 
 ## Troubleshooting
 
+**Error: `configuration has an unknown property 'main'`**
+
+`main` bukan property electron-builder. Entry point dibaca dari `package.json` root.
+Pastikan root `package.json` punya:
+```json
+{ "main": "electron/main.js" }
+```
+Script `build-electron.js` sudah validasi ini sebelum build dimulai.
+
+---
+
 **Error: `gyp ERR! find Python` / `better-sqlite3 compile failed`**
 
-Ini terjadi jika `node_modules` di folder `electron/` sudah ada dari percobaan sebelumnya.
-Solusi:
-```bash
-# Hapus node_modules di subfolder electron
-rd /s /q electron\node_modules
+Terjadi jika ada sisa `node_modules` dari instalasi lama di `electron/`.
+Script `build-electron.js` sudah otomatis mendeteksi dan menghapus `electron/node_modules` lama jika versinya tidak sesuai, lalu install ulang dengan `--ignore-scripts`.
 
-# Jalankan build ulang
+Jika masih error, hapus manual:
+```bash
+rd /s /q electron\node_modules
 node build-electron.js
 ```
 
-Script build sudah pakai `--ignore-scripts` saat install di folder `electron/` agar `better-sqlite3` tidak di-compile ulang di sana.
+---
+
+**Error: `better-sqlite3` crash saat app dijalankan**
+
+`better-sqlite3` perlu di-compile ulang khusus untuk ABI Node.js di Electron.
+Script sudah menangani ini otomatis via `@electron/rebuild`. Jika gagal:
+```bash
+cd electron
+npm install
+npx @electron/rebuild -f -w better-sqlite3
+cd ..
+node build-electron.js
+```
 
 ---
 

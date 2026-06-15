@@ -2,7 +2,7 @@
   "name": "viewer-merusuh",
   "version": "1.0.0",
   "description": "Platform interaktif untuk livestreamer — viewer bisa merusuh saat streaming game via donasi",
-  "main": "server/index.js",
+  "main": "electron/main.js",
   "scripts": {
     "start": "node server/index.js",
     "dev": "nodemon server/index.js",
@@ -38,7 +38,7 @@
   "devDependencies": {
     "nodemon": "^3.1.0",
     "electron": "^28.0.0",
-    "electron-builder": "^24.9.1",
+    "electron-builder": "^26.15.3",
     "concurrently": "^8.2.2"
   },
   "optionalDependencies": {

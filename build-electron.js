@@ -1,16 +1,9 @@
 // build-electron.js
 // Jalankan dari ROOT: node build-electron.js
 //
-// Urutan build:
-//   1. Build dashboard React
-//   2. Siapkan assets (icon placeholder)
-//   3. Install electron + electron-builder di folder electron/ (devDeps only)
-//   4. Jalankan electron-builder dari ROOT → pakai node_modules ROOT
-//      (better-sqlite3 tidak perlu compile ulang!)
-//
 // Output: dist-electron/
-//   viewer-merusuh-setup-1.0.0.exe    ← installer
-//   viewer-merusuh-1.0.0-portable.exe ← portable
+//   viewer-merusuh-setup-1.0.0.exe    <- installer (next-next-finish)
+//   viewer-merusuh-1.0.0-portable.exe <- portable (langsung jalankan)
 
 const { execSync } = require('child_process')
 const fs           = require('fs')
@@ -23,37 +16,49 @@ const VERSION = pkg.version
 function log(step, msg) { console.log(`\n  [${step}] ${msg}`) }
 function ok(msg)        { console.log(`  ✅ ${msg}`) }
 function warn(msg)      { console.log(`  ⚠️  ${msg}`) }
+function fail(msg)      { console.error(`  ❌ ${msg}`); process.exit(1) }
 
-function run(cmd, cwd = ROOT, opts = {}) {
+function run(cmd, cwd = ROOT) {
   console.log(`  $ ${cmd}`)
-  execSync(cmd, { stdio: 'inherit', cwd, ...opts })
+  execSync(cmd, { stdio: 'inherit', cwd })
 }
 
-function ensureIcon() {
+// Hapus folder secara rekursif (Windows-safe)
+function rmrf(dir) {
+  if (!fs.existsSync(dir)) return
+  if (process.platform === 'win32') {
+    execSync(`rd /s /q "${dir}"`, { stdio: 'ignore' })
+  } else {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+}
+
+function ensureIcons() {
   const iconDir = path.join(ROOT, 'electron', 'assets')
   fs.mkdirSync(iconDir, { recursive: true })
+
+  // 1x1 transparan PNG sebagai placeholder
+  const PNG = Buffer.from(
+    '89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c489' +
+    '0000000a49444154789c6260000000000200014d79d3660000000049454e44ae426082',
+    'hex'
+  )
 
   const iconPng  = path.join(iconDir, 'icon.png')
   const iconIco  = path.join(iconDir, 'icon.ico')
   const trayIcon = path.join(iconDir, 'tray-icon.png')
 
-  // Placeholder PNG 1x1 transparan
-  const PNG_PLACEHOLDER = Buffer.from(
-    '89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000a' +
-    '49444154789c6260000000000200014d79d3660000000049454e44ae426082', 'hex'
-  )
+  if (!fs.existsSync(iconPng))  { fs.writeFileSync(iconPng, PNG); warn('icon.png placeholder — ganti dengan icon 256x256 asli!') }
+  if (!fs.existsSync(iconIco))  { fs.copyFileSync(iconPng, iconIco); warn('icon.ico copy dari placeholder') }
+  if (!fs.existsSync(trayIcon)) { fs.copyFileSync(iconPng, trayIcon) }
+}
 
-  if (!fs.existsSync(iconPng)) {
-    fs.writeFileSync(iconPng, PNG_PLACEHOLDER)
-    warn('icon.png tidak ada — pakai placeholder. Ganti dengan icon 256x256 untuk release!')
+function checkMainField() {
+  // electron-builder membaca "main" dari root package.json
+  if (pkg.main !== 'electron/main.js') {
+    fail(`package.json "main" harus "electron/main.js", saat ini: "${pkg.main}"`)
   }
-  if (!fs.existsSync(iconIco)) {
-    fs.copyFileSync(iconPng, iconIco)
-    warn('icon.ico tidak ada — copy dari icon.png')
-  }
-  if (!fs.existsSync(trayIcon)) {
-    fs.copyFileSync(iconPng, trayIcon)
-  }
+  ok(`package.json "main" = "${pkg.main}"`)
 }
 
 async function main() {
@@ -63,64 +68,121 @@ async function main() {
   ╚══════════════════════════════════════════════════════╝
   `)
 
-  // ── Step 1: Build dashboard ───────────────────────────────────────
-  log('1/4', 'Build dashboard React...')
-  const dashSrc  = path.join(ROOT, 'dashboard')
-  const dashDist = path.join(dashSrc, 'dist', 'index.html')
+  // ── Step 0: Validasi ─────────────────────────────────────────────
+  log('0/5', 'Validasi konfigurasi...')
+  checkMainField()
 
-  if (!fs.existsSync(path.join(dashSrc, 'node_modules'))) {
-    run('npm install', dashSrc)
+  if (!fs.existsSync(path.join(ROOT, 'electron', 'main.js'))) {
+    fail('electron/main.js tidak ditemukan!')
   }
-  run('npm run build', dashSrc)
+  if (!fs.existsSync(path.join(ROOT, 'electron-builder.config.js'))) {
+    fail('electron-builder.config.js tidak ditemukan!')
+  }
+  ok('Konfigurasi valid')
+
+  // ── Step 1: Build dashboard ───────────────────────────────────────
+  log('1/5', 'Build dashboard React...')
+  const dashDir  = path.join(ROOT, 'dashboard')
+  const dashDist = path.join(dashDir, 'dist', 'index.html')
+
+  if (!fs.existsSync(path.join(dashDir, 'node_modules'))) {
+    run('npm install', dashDir)
+  }
+  run('npm run build', dashDir)
 
   if (!fs.existsSync(dashDist)) {
-    throw new Error('Dashboard build gagal — dist/index.html tidak ditemukan')
+    fail('Dashboard build gagal — dist/index.html tidak ditemukan')
   }
   ok('Dashboard berhasil di-build')
 
-  // ── Step 2: Siapkan assets ────────────────────────────────────────
-  log('2/4', 'Mempersiapkan assets...')
-  ensureIcon()
+  // ── Step 2: Icon ─────────────────────────────────────────────────
+  log('2/5', 'Mempersiapkan assets...')
+  ensureIcons()
   ok('Assets siap')
 
-  // ── Step 3: Install HANYA electron + electron-builder di subfolder ─
-  log('3/4', 'Install Electron devDependencies...')
+  // ── Step 3: Install electron + electron-builder ───────────────────
+  log('3/5', 'Install Electron devDependencies...')
   const electronDir = path.join(ROOT, 'electron')
+  const electronNM  = path.join(electronDir, 'node_modules')
 
-  // Hapus node_modules electron dulu jika ada (cegah konflik)
-  const electronNM = path.join(electronDir, 'node_modules')
-  if (fs.existsSync(electronNM)) {
-    console.log('  node_modules electron sudah ada, skip install')
-  } else {
-    // Install HANYA devDependencies (electron + electron-builder)
-    // --ignore-scripts penting: cegah better-sqlite3 compile di sini
+  // Jika ada sisa dari install sebelumnya, hapus dulu
+  // agar dapat versi electron-builder yang benar (v26)
+  const ebPath = path.join(electronNM, 'electron-builder', 'package.json')
+  if (fs.existsSync(ebPath)) {
+    const ebVer = JSON.parse(fs.readFileSync(ebPath)).version
+    if (!ebVer.startsWith('26') && !ebVer.startsWith('25')) {
+      console.log(`  Versi lama electron-builder (${ebVer}) ditemukan, hapus dan install ulang...`)
+      rmrf(electronNM)
+    } else {
+      console.log(`  electron-builder v${ebVer} sudah terinstall`)
+    }
+  }
+
+  if (!fs.existsSync(electronNM)) {
+    // --ignore-scripts: cegah native module compile di sini
     run('npm install --ignore-scripts', electronDir)
   }
   ok('Electron devDependencies siap')
 
-  // ── Step 4: Build .exe dari ROOT ──────────────────────────────────
-  log('4/4', 'Build installer dan portable .exe...')
-  console.log('  (Butuh beberapa menit — download Electron runtime ~80MB)\n')
+  // ── Step 4: Rebuild better-sqlite3 untuk Electron ─────────────────
+  // better-sqlite3 harus di-rebuild khusus untuk versi Node yang ada di Electron
+  // bukan untuk Node.js yang ada di sistem
+  log('4/5', 'Rebuild native module untuk Electron...')
 
-  // electron-builder dijalankan dari ROOT agar pakai node_modules root
-  // --config menunjuk ke electron-builder.config.js di root
-  // npx dijalankan dari folder electron/ agar pakai electron-builder yang ada di sana
-  const builderBin = path.join(electronDir, 'node_modules', '.bin', 'electron-builder')
-  const builderCmd = process.platform === 'win32'
-    ? `"${builderBin}.cmd" build --win --config electron-builder.config.js`
-    : `"${builderBin}" build --win --config electron-builder.config.js`
+  const electronVersion = (() => {
+    try {
+      const ePkg = path.join(electronNM, 'electron', 'package.json')
+      return JSON.parse(fs.readFileSync(ePkg)).version
+    } catch { return null }
+  })()
 
-  run(builderCmd, ROOT)
+  if (electronVersion) {
+    console.log(`  Electron version: v${electronVersion}`)
+    try {
+      // electron-rebuild compile ulang better-sqlite3 untuk ABI Electron
+      const rebuildBin = path.join(electronNM, '.bin',
+        process.platform === 'win32' ? 'electron-rebuild.cmd' : 'electron-rebuild')
+
+      if (fs.existsSync(rebuildBin)) {
+        run(`"${rebuildBin}" -f -w better-sqlite3 -v ${electronVersion}`, ROOT)
+        ok('better-sqlite3 berhasil di-rebuild untuk Electron')
+      } else {
+        // Fallback: pakai @electron/rebuild
+        run(`npx --prefix "${electronDir}" @electron/rebuild -f -w better-sqlite3 -v ${electronVersion}`, ROOT)
+        ok('better-sqlite3 berhasil di-rebuild (via npx)')
+      }
+    } catch (e) {
+      warn(`Rebuild better-sqlite3 gagal: ${e.message}`)
+      warn('App mungkin crash saat pertama dijalankan. Lihat docs/BUILD_ELECTRON.md.')
+    }
+  } else {
+    warn('Tidak bisa deteksi versi Electron — skip rebuild better-sqlite3')
+  }
+
+  // ── Step 5: Build .exe ────────────────────────────────────────────
+  log('5/5', 'Build installer dan portable .exe...')
+  console.log('  (Butuh beberapa menit — download Electron runtime ~80MB pertama kali)\n')
+
+  const builderBin = path.join(electronNM, '.bin',
+    process.platform === 'win32' ? 'electron-builder.cmd' : 'electron-builder')
+
+  if (!fs.existsSync(builderBin.replace('.cmd', '').replace(/\.cmd$/, '') + (process.platform === 'win32' ? '.cmd' : ''))) {
+    if (!fs.existsSync(builderBin)) {
+      fail(`electron-builder tidak ditemukan di ${builderBin}`)
+    }
+  }
+
+  run(`"${builderBin}" build --win --config electron-builder.config.js`, ROOT)
 
   // ── Hasil ──────────────────────────────────────────────────────────
   const distDir = path.join(ROOT, 'dist-electron')
   let files = []
   if (fs.existsSync(distDir)) {
     files = fs.readdirSync(distDir)
-      .filter(f => f.endsWith('.exe') || f.endsWith('.dmg') || f.endsWith('.AppImage'))
+      .filter(f => f.endsWith('.exe'))
       .map(f => {
-        const size = (fs.statSync(path.join(distDir, f)).size / 1024 / 1024).toFixed(1)
-        return `   📦 ${f} (${size}MB)`
+        const sizeMB = (fs.statSync(path.join(distDir, f)).size / 1024 / 1024).toFixed(1)
+        return `  ║   📦 ${f} (${sizeMB}MB)`
       })
   }
 
@@ -128,11 +190,11 @@ async function main() {
   ╔══════════════════════════════════════════════════════╗
   ║   ✅  Build selesai!                                 ║
   ╠══════════════════════════════════════════════════════╣
-${files.map(f => `  ║ ${f.padEnd(52)} ║`).join('\n')}
+${files.join('\n') || '  ║   Output: dist-electron/'}
   ╠══════════════════════════════════════════════════════╣
   ║   Upload ke GitHub Releases:                         ║
-  ║   viewer-merusuh-setup-${VERSION}.exe   ← installer  ║
-  ║   viewer-merusuh-${VERSION}-portable.exe             ║
+  ║   → viewer-merusuh-setup-${VERSION}.exe              ║
+  ║   → viewer-merusuh-${VERSION}-portable.exe           ║
   ╚══════════════════════════════════════════════════════╝
   `)
 }

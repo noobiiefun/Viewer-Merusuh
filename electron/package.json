@@ -1,14 +1,13 @@
 {
   "name": "viewer-merusuh-electron",
   "version": "1.0.0",
-  "description": "Electron wrapper untuk Viewer Merusuh",
   "private": true,
   "scripts": {
-    "dev": "electron ../.",
+    "dev":   "electron ../.",
     "build": "electron-builder build --win --config ../electron-builder.config.js"
   },
   "devDependencies": {
-    "electron": "^28.0.0",
-    "electron-builder": "^24.9.1"
+    "electron":         "^28.0.0",
+    "electron-builder": "^26.15.3"
   }
 }
