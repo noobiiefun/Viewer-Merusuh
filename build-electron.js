@@ -83,18 +83,103 @@ function ensureIcons() {
   const iconDir = path.join(ROOT, 'electron', 'assets')
   fs.mkdirSync(iconDir, { recursive: true })
 
-  const PNG = Buffer.from(
-    '89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c489' +
-    '0000000a49444154789c6260000000000200014d79d3660000000049454e44ae426082',
-    'hex'
-  )
   const iconPng  = path.join(iconDir, 'icon.png')
   const iconIco  = path.join(iconDir, 'icon.ico')
   const trayIcon = path.join(iconDir, 'tray-icon.png')
 
-  if (!fs.existsSync(iconPng))  { fs.writeFileSync(iconPng, PNG); warn('icon.png placeholder — ganti icon 256x256 untuk release!') }
-  if (!fs.existsSync(iconIco))  { fs.copyFileSync(iconPng, iconIco) }
-  if (!fs.existsSync(trayIcon)) { fs.copyFileSync(iconPng, trayIcon) }
+  // Cek apakah icon.ico sudah valid (header ICO = 00 00 01 00)
+  const icoValid = (() => {
+    if (!fs.existsSync(iconIco)) return false
+    const buf = fs.readFileSync(iconIco)
+    return buf.length > 4 && buf[0] === 0 && buf[1] === 0 && buf[2] === 1 && buf[3] === 0
+  })()
+
+  if (icoValid && fs.existsSync(iconPng)) {
+    ok('Icon sudah ada dan valid')
+    return
+  }
+
+  warn('Membuat icon placeholder — ganti electron/assets/icon.png & icon.ico untuk release!')
+  generateIcons(iconPng, iconIco, trayIcon)
+}
+
+function generateIcons(iconPng, iconIco, trayIcon) {
+  // Buat PNG sederhana solid purple (#7c3aed = rgb 124,58,237) via raw bytes
+  function makePng(size) {
+    const zlib = require('zlib')
+    function chunk(type, data) {
+      const buf = Buffer.concat([Buffer.from(type), data])
+      const crc  = Buffer.alloc(4)
+      crc.writeUInt32BE(require('crc-32') ? 0 : crcTable(buf), 0)
+      const len  = Buffer.alloc(4)
+      len.writeUInt32BE(data.length, 0)
+      // Hitung CRC manual
+      let c = 0xFFFFFFFF
+      for (const b of buf) {
+        c = (c >>> 8) ^ crcLut[(c ^ b) & 0xFF]
+      }
+      c = (c ^ 0xFFFFFFFF) >>> 0
+      crc.writeUInt32BE(c, 0)
+      return Buffer.concat([len, buf, crc])
+    }
+
+    // Init CRC lookup table
+    const crcLut = new Uint32Array(256)
+    for (let i = 0; i < 256; i++) {
+      let c = i
+      for (let j = 0; j < 8; j++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1)
+      crcLut[i] = c
+    }
+
+    // IHDR
+    const ihdr = Buffer.alloc(13)
+    ihdr.writeUInt32BE(size, 0)
+    ihdr.writeUInt32BE(size, 4)
+    ihdr[8] = 8; ihdr[9] = 2  // bit depth=8, color type=RGB
+
+    // Raw image data: tiap baris = filter(0) + RGB pixels
+    const row = Buffer.alloc(1 + size * 3)
+    row[0] = 0  // filter none
+    for (let i = 0; i < size; i++) { row[1+i*3]=124; row[2+i*3]=58; row[3+i*3]=237 }
+    const rawData = Buffer.concat(Array(size).fill(row))
+    const compressed = zlib.deflateSync(rawData)
+
+    const sig = Buffer.from([137,80,78,71,13,10,26,10])
+    return Buffer.concat([
+      sig,
+      chunk('IHDR', ihdr),
+      chunk('IDAT', compressed),
+      chunk('IEND', Buffer.alloc(0)),
+    ])
+  }
+
+  const sizes = [16, 32, 48, 256]
+  const pngs  = sizes.map(s => makePng(s))
+
+  // ICO file format
+  const count  = sizes.length
+  let offset   = 6 + count * 16
+  const header = Buffer.alloc(6)
+  header.writeUInt16LE(0, 0)  // reserved
+  header.writeUInt16LE(1, 2)  // type: ICO
+  header.writeUInt16LE(count, 4)
+
+  const entries = Buffer.alloc(count * 16)
+  pngs.forEach((png, i) => {
+    const w = sizes[i] >= 256 ? 0 : sizes[i]
+    const e = entries.slice(i * 16)
+    e[0] = w; e[1] = w; e[2] = 0; e[3] = 0
+    e.writeUInt16LE(1, 4)
+    e.writeUInt16LE(32, 6)
+    e.writeUInt32LE(png.length, 8)
+    e.writeUInt32LE(offset, 12)
+    offset += png.length
+  })
+
+  const icoData = Buffer.concat([header, entries, ...pngs])
+  fs.writeFileSync(iconIco, icoData)
+  fs.writeFileSync(iconPng, pngs[3])   // 256x256
+  fs.writeFileSync(trayIcon, pngs[0])  // 16x16
 }
 
 async function main() {

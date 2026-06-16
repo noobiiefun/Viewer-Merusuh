@@ -3,118 +3,190 @@
 ║         Biarkan viewer merusuh saat kamu livestream!         ║
 ╚══════════════════════════════════════════════════════════════╝
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  INSTALASI PERTAMA KALI
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-LANGKAH 1: Install Node.js (wajib, cukup sekali)
-  → Buka: https://nodejs.org/en/download
-  → Download versi LTS (tombol hijau)
-  → Install dengan semua setting default
-  → Restart PC setelah install
-
-LANGKAH 2: Jalankan Setup
-  → Double-click file: SETUP.bat
-  → Tunggu hingga selesai (butuh koneksi internet)
-  → Muncul pesan "Setup selesai!" = berhasil
-
-LANGKAH 3: Mulai Viewer Merusuh
-  → Double-click file: START.bat
-  → Browser otomatis terbuka ke Dashboard
-  → Selesai! 🎉
-
+  Platform donasi yang didukung: Saweria, Trakteer
+  Kompatibel dengan: GTA 5, BeamNG.drive, NFS, Forza, dan lainnya
+  OS: Windows 10/11 (64-bit)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  PENGGUNAAN SEHARI-HARI
+  ADA 2 VERSI — PILIH SALAH SATU
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  START.bat  → Mulai server (jalankan sebelum streaming)
-  STOP.bat   → Matikan server
-  UPDATE.bat → Update ke versi terbaru (butuh Git)
+  📦 viewer-merusuh-setup-1.0.0.exe  ← RECOMMENDED
+     Installer biasa (next-next-finish)
+     Buat shortcut di desktop dan Start Menu
+     Bisa di-uninstall dari Control Panel
 
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  KONFIGURASI SAWERIA / TRAKTEER
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  1. Jalankan START.bat
-  2. Buka dashboard: http://localhost:3000/dashboard
-  3. Klik menu "🔐 Secrets & Config"
-  4. Isi Stream Key (Saweria) atau API Key (Trakteer)
-  5. Klik "💾 Simpan Semua"
-
-  Untuk Saweria webhook URL:
-  → Buka: https://saweria.co/dashboard → Stream Key
-  → Set Webhook URL ke: http://localhost:3000/webhook/saweria
-  → (Butuh ngrok jika streaming dari luar jaringan lokal)
-
-  Untuk Trakteer webhook URL:
-  → Buka: https://trakteer.id/manage/integration
-  → Set Webhook URL ke: http://localhost:3000/webhook/trakteer
-
+  📦 viewer-merusuh-1.0.0-portable.exe
+     Tidak perlu install — langsung jalankan
+     Cocok untuk USB / berpindah-pindah PC
+     Data disimpan di folder yang sama dengan .exe
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  SETUP OBS OVERLAY
+  INSTALASI (VERSI INSTALLER)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  1. Buka OBS Studio
-  2. Di panel Sources → klik tombol +
-  3. Pilih "Browser Source"
-  4. Isi URL: http://localhost:3000/overlay
-  5. Width: 400, Height: 600
-  6. Centang "Shutdown source when not visible" → OFF
-  7. Klik OK
-  8. Pindahkan source ke pojok layar sesuai selera
+  1. Double-click: viewer-merusuh-setup-1.0.0.exe
+  2. Klik Next → Next → Install → Finish
+  3. Viewer Merusuh otomatis terbuka
+  4. Setup Wizard muncul → ikuti panduan
+  5. Selesai! 🎉
 
+  Setelah install, buka dari:
+  → Shortcut di Desktop: "Viewer Merusuh"
+  → Start Menu → Viewer Merusuh
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  SETUP AUTOHOTKEY (Untuk efek keyboard/mouse)
+  CARA PAKAI (SETELAH INSTALL)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  1. Download AutoHotkey v2: https://www.autohotkey.com/download/
-  2. Install dengan setting default
-  3. Di dashboard → "🔐 Secrets & Config" → isi path AHK
+  STEP 1 — Hubungkan platform donasi
+  ┌─────────────────────────────────────────────────────────┐
+  │ SAWERIA:                                                │
+  │   • Buka https://saweria.co/dashboard → Stream Key     │
+  │   • Copy Stream Key                                     │
+  │   • Di Viewer Merusuh → menu "🔐 Secrets & Config"     │
+  │   • Paste ke kolom "Saweria Stream Key" → Simpan       │
+  │   • Set Webhook URL ke: http://localhost:3000/webhook/  │
+  │     saweria                                             │
+  │                                                         │
+  │ TRAKTEER:                                               │
+  │   • Buka https://trakteer.id/manage/integration         │
+  │   • Copy API Key                                        │
+  │   • Di Viewer Merusuh → menu "🔐 Secrets & Config"     │
+  │   • Paste ke kolom "Trakteer API Key" → Simpan         │
+  │   • Set Webhook URL ke: http://localhost:3000/webhook/  │
+  │     trakteer                                            │
+  └─────────────────────────────────────────────────────────┘
 
+  STEP 2 — Setup OBS Overlay (notifikasi di layar)
+  ┌─────────────────────────────────────────────────────────┐
+  │   1. Buka OBS Studio                                    │
+  │   2. Sources → klik + → pilih Browser Source           │
+  │   3. URL: http://localhost:3000/overlay                 │
+  │   4. Width: 400 — Height: 600                           │
+  │   5. "Shutdown source when not visible" → OFF           │
+  │   6. Klik OK, posisikan di pojok layar                  │
+  └─────────────────────────────────────────────────────────┘
+
+  STEP 3 — Setup efek game
+  ┌─────────────────────────────────────────────────────────┐
+  │   • Di dashboard → menu "⚡ Efek"                       │
+  │   • Efek default sudah tersedia                         │
+  │   • Sesuaikan nominal donasi → aksi game                │
+  │   • Test di menu "🧪 Testing Area"                      │
+  └─────────────────────────────────────────────────────────┘
+
+  STEP 4 — Atur efek AutoHotkey (untuk game keyboard)
+  ┌─────────────────────────────────────────────────────────┐
+  │   • Download AutoHotkey v2:                             │
+  │     https://www.autohotkey.com/download/                │
+  │   • Install dengan setting default                      │
+  │   • Viewer Merusuh otomatis deteksi AHK                 │
+  └─────────────────────────────────────────────────────────┘
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  PERLU NGROK JIKA SERVER LOKAL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Saweria/Trakteer mengirim webhook dari internet ke PC kamu.
+  Jika kamu streaming dari rumah (bukan VPS), butuh ngrok:
+
+  1. Download ngrok: https://ngrok.com/download
+  2. Jalankan: ngrok http 3000
+  3. Copy URL yang diberikan (contoh: https://abc123.ngrok.io)
+  4. Gunakan URL itu sebagai webhook di Saweria/Trakteer:
+     https://abc123.ngrok.io/webhook/saweria
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ICON DI SYSTEM TRAY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Setelah dijalankan, Viewer Merusuh ada di system tray
+  (pojok kanan bawah taskbar, dekat jam).
+
+  Klik kanan icon tray untuk:
+  → Buka Dashboard
+  → Buka di Browser
+  → Copy URL Overlay OBS
+  → Keluar
+
+  Menutup window TIDAK mematikan server — app tetap
+  berjalan di background. Gunakan menu tray → Keluar
+  untuk benar-benar menutup.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   PORT BENTROK?
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  Jika muncul error "Port 3000 sudah dipakai":
-  1. Buka file .env dengan Notepad
-  2. Cari baris: PORT=3000
-  3. Ganti angkanya, misal: PORT=3001
-  4. Simpan file
-  5. Jalankan START.bat lagi
-
+  Jika ada error "Port 3000 sudah dipakai":
+  → Di dashboard → menu "🔐 Secrets & Config"
+  → Ganti PORT ke angka lain (misal: 3001, 4000, 8080)
+  → Klik Simpan → Restart aplikasi
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   MASALAH UMUM
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  ❌ "node is not recognized"
-     → Node.js belum terinstall atau perlu restart PC
+  ❌ Aplikasi tidak mau buka
+     → Klik kanan .exe → "Run as administrator"
+     → Atau cek Windows Defender / antivirus
 
-  ❌ Server berjalan tapi webhook tidak masuk
-     → Pastikan URL webhook di Saweria/Trakteer sudah benar
-     → Jika server di PC lokal, butuh ngrok untuk akses dari luar
+  ❌ Dashboard tidak tampil (layar kosong)
+     → Tunggu 5-10 detik, server butuh waktu start
+     → Klik kanan tray → Buka Dashboard
 
-  ❌ OBS overlay tidak tampil notifikasi
-     → Pastikan server berjalan sebelum buka OBS
-     → Klik kanan source di OBS → Refresh
-
-  ❌ Efek tidak berjalan di game
+  ❌ Donasi masuk tapi efek tidak jalan
+     → Pastikan game dalam mode Window atau Borderless
      → Pastikan AutoHotkey v2 sudah terinstall
-     → Pastikan game dalam mode windowed/borderless, bukan fullscreen eksklusif
+     → Cek menu "🧪 Testing Area" untuk diagnosa
+
+  ❌ OBS overlay tidak tampil
+     → Pastikan Viewer Merusuh sudah jalan sebelum buka OBS
+     → Klik kanan Browser Source di OBS → Refresh
+
+  ❌ Webhook tidak masuk dari Saweria/Trakteer
+     → Pastikan ngrok berjalan dan URL sudah diupdate
+     → Cek Stream Key / API Key di menu Secrets & Config
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  BANTUAN & KONTRIBUSI
+  DATA TERSIMPAN DI MANA?
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  GitHub : https://github.com/username/viewer-merusuh
-  Issues : https://github.com/username/viewer-merusuh/issues
+  Semua konfigurasi dan data tersimpan di:
+  C:\Users\[nama]\AppData\Roaming\Viewer Merusuh\
 
-  MIT License — Bebas digunakan dan dimodifikasi.
+  File:
+  → .env              = konfigurasi (PORT, API keys)
+  → viewer-merusuh.db = database (efek, log donasi)
+
+  Data TIDAK hilang saat update atau reinstall.
+  Untuk reset: hapus folder di atas, lalu restart app.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  PLUGIN GAME NATIVE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Untuk efek lebih canggih di dalam game:
+
+  GTA 5 (Story Mode only — JANGAN di Online!):
+  → Install ScriptHookV + ScriptHookV .NET
+  → Copy ViewerMerusuh.cs ke folder GTA 5\scripts\
+  → Panduan: buka dashboard → menu Dokumentasi
+
+  BeamNG.drive:
+  → Copy folder viewermerusuh ke:
+    Documents\BeamNG.drive\mods\unpacked\
+  → Aktifkan via Extensions menu di BeamNG
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  BANTUAN & KOMUNITAS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  GitHub   : https://github.com/username/viewer-merusuh
+  Issues   : https://github.com/username/viewer-merusuh/issues
+  Diskusi  : https://github.com/username/viewer-merusuh/discussions
+
+  MIT License — Open source, bebas digunakan & dimodifikasi.
   Dibuat dengan ☕ untuk komunitas streamer Indonesia.
 
 ══════════════════════════════════════════════════════════════

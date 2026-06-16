@@ -1,59 +1,62 @@
 // electron/main.js
-// Electron main process
-// Tugasnya:
-//   1. Spawn Node.js server (server/index.js) sebagai child process
-//   2. Buka window browser yang menampilkan dashboard
-//   3. Handle tray icon, update, dan lifecycle app
+// Electron main process — Viewer Merusuh
 
-const { app, BrowserWindow, Tray, Menu, shell, dialog, ipcMain, nativeImage } = require('electron')
+const { app, BrowserWindow, Tray, Menu, shell, dialog, ipcMain, nativeImage, clipboard } = require('electron')
 const { spawn }    = require('child_process')
 const path         = require('path')
 const fs           = require('fs')
 const http         = require('http')
 const net          = require('net')
 
-// ── Path resolution (works di dev dan setelah di-package) ─────────────
-const IS_PACKAGED  = app.isPackaged
-// Saat dev: ROOT = folder project (satu level di atas electron/)
-// Saat packaged: ROOT = folder resources di dalam .exe
-const ROOT         = IS_PACKAGED
-  ? process.resourcesPath
-  : path.join(__dirname, '..')
+// ── Path resolution ───────────────────────────────────────────────────
+const IS_PACKAGED = app.isPackaged
+
+// ROOT: folder yang berisi server/, dashboard/, dll
+const ROOT = IS_PACKAGED
+  ? path.join(process.resourcesPath, 'app')  // di dalam .exe
+  : path.join(__dirname, '..')                 // saat dev
 
 const SERVER_ENTRY = path.join(ROOT, 'server', 'index.js')
-const ENV_PATH     = IS_PACKAGED
-  ? path.join(app.getPath('userData'), '.env')
-  : path.join(ROOT, '.env')
-const DB_PATH      = IS_PACKAGED
-  ? path.join(app.getPath('userData'), 'viewer-merusuh.db')
-  : path.join(ROOT, 'viewer-merusuh.db')
 
-// ── State ────────────────────────────────────────────────────────────
+// userData: folder di %AppData% untuk .env dan .db
+const USER_DATA = app.getPath('userData')
+const ENV_PATH  = path.join(USER_DATA, '.env')
+const DB_PATH   = path.join(USER_DATA, 'viewer-merusuh.db')
+
+// ── State ─────────────────────────────────────────────────────────────
 let mainWindow  = null
 let tray        = null
 let serverProc  = null
 let serverPort  = 3000
 let serverReady = false
+let isQuitting  = false
+
+// ── Logging ───────────────────────────────────────────────────────────
+const logPath = path.join(USER_DATA, 'app.log')
+function log(msg) {
+  const line = `[${new Date().toISOString()}] ${msg}\n`
+  process.stdout.write(line)
+  try { fs.appendFileSync(logPath, line) } catch {}
+}
 
 // ─────────────────────────────────────────────────────────────────────
 // Baca PORT dari .env
 // ─────────────────────────────────────────────────────────────────────
 function readPort() {
-  const envFile = fs.existsSync(ENV_PATH) ? ENV_PATH : path.join(ROOT, '.env.example')
-  if (!fs.existsSync(envFile)) return 3000
-  const lines = fs.readFileSync(envFile, 'utf8').split('\n')
-  for (const line of lines) {
-    const trimmed = line.trim()
-    if (trimmed.startsWith('PORT=')) {
-      const val = parseInt(trimmed.slice(5))
-      if (!isNaN(val)) return val
+  const files = [ENV_PATH, path.join(ROOT, '.env.example')]
+  for (const f of files) {
+    if (!fs.existsSync(f)) continue
+    const lines = fs.readFileSync(f, 'utf8').split('\n')
+    for (const line of lines) {
+      const m = line.trim().match(/^PORT=(\d+)/)
+      if (m) return parseInt(m[1])
     }
   }
   return 3000
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Cek apakah port sudah terpakai
+// Cek port bebas
 // ─────────────────────────────────────────────────────────────────────
 function isPortFree(port) {
   return new Promise(resolve => {
@@ -65,171 +68,262 @@ function isPortFree(port) {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Setup: copy .env dan DB ke userData jika belum ada (saat install)
+// Pastikan userData dan file config ada
 // ─────────────────────────────────────────────────────────────────────
 function ensureUserData() {
-  const userData = app.getPath('userData')
-  if (!fs.existsSync(userData)) fs.mkdirSync(userData, { recursive: true })
+  if (!fs.existsSync(USER_DATA)) fs.mkdirSync(USER_DATA, { recursive: true })
 
-  // Copy .env.example sebagai .env default jika belum ada
   if (!fs.existsSync(ENV_PATH)) {
-    const exampleSrc = path.join(ROOT, '.env.example')
-    if (fs.existsSync(exampleSrc)) {
-      fs.copyFileSync(exampleSrc, ENV_PATH)
+    const src = path.join(ROOT, '.env.example')
+    if (fs.existsSync(src)) {
+      let content = fs.readFileSync(src, 'utf8')
+      content += `\nDB_PATH=${DB_PATH.replace(/\\/g, '\\\\')}\n`
+      fs.writeFileSync(ENV_PATH, content)
     } else {
       fs.writeFileSync(ENV_PATH, [
-        '# Viewer Merusuh — Konfigurasi',
+        '# Viewer Merusuh',
         'PORT=3000',
         'NODE_ENV=production',
         'SAWERIA_STREAM_KEY=',
         'TRAKTEER_API_KEY=',
         `AHK_EXE_PATH=C:\\Program Files\\AutoHotkey\\v2\\AutoHotkey64.exe`,
         'PLUGIN_SECRET=',
+        `DB_PATH=${DB_PATH.replace(/\\/g, '\\\\')}`,
       ].join('\n'))
     }
+    log(`Created .env at: ${ENV_PATH}`)
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Init database jika belum ada
+// Init database
 // ─────────────────────────────────────────────────────────────────────
 function ensureDatabase() {
-  if (!fs.existsSync(DB_PATH)) {
-    try {
-      // Set env agar setup.js tahu path DB
-      process.env.DB_PATH = DB_PATH
-      require(path.join(ROOT, 'server', 'db', 'setup.js'))
-    } catch (e) {
-      console.error('DB setup error:', e.message)
+  if (fs.existsSync(DB_PATH)) return
+  try {
+    process.env.DB_PATH = DB_PATH
+    const setupPath = path.join(ROOT, 'server', 'db', 'setup.js')
+    if (fs.existsSync(setupPath)) {
+      // Jalankan setup dalam proses terpisah agar tidak block
+      const { execFileSync } = require('child_process')
+      execFileSync(process.execPath, [setupPath], {
+        env: { ...process.env, DB_PATH },
+        timeout: 15000,
+        stdio: 'ignore',
+      })
+      log('Database initialized')
     }
+  } catch (e) {
+    log('DB init error: ' + e.message)
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Spawn Node.js server sebagai child process
+// Spawn server
 // ─────────────────────────────────────────────────────────────────────
 async function startServer() {
   serverPort = readPort()
+  log(`Starting server on port ${serverPort}`)
 
-  // Cek port bebas
-  const free = await isPortFree(serverPort)
-  if (!free) {
-    const choice = await dialog.showMessageBox(mainWindow, {
+  const portFree = await isPortFree(serverPort)
+  if (!portFree) {
+    log(`Port ${serverPort} is in use`)
+    const choice = await dialog.showMessageBox({
       type:    'warning',
       title:   'Port Sudah Dipakai',
       message: `Port ${serverPort} sudah digunakan aplikasi lain.`,
-      detail:  `Ganti port di Settings → Secrets & Config, lalu restart aplikasi.`,
-      buttons: ['Buka Settings', 'Keluar'],
+      detail:  'Buka Settings → Secrets & Config → ganti PORT, lalu restart.',
+      buttons: ['Buka Pengaturan', 'Keluar'],
     })
     if (choice.response === 0) {
-      mainWindow.loadURL(`http://localhost:${serverPort}/dashboard#secrets`)
+      serverReady = true
+      loadDashboard()
     } else {
       app.quit()
     }
     return
   }
 
-  const nodeExe = process.execPath  // Node.js yang di-bundle Electron
-  const env     = {
+  const env = {
     ...process.env,
-    PORT:    String(serverPort),
-    DB_PATH: DB_PATH,
-    ENV_PATH: ENV_PATH,
-    NODE_ENV: 'production',
-    ELECTRON: '1',
+    PORT:      String(serverPort),
+    DB_PATH:   DB_PATH,
+    ENV_PATH:  ENV_PATH,
+    NODE_ENV:  'production',
+    ELECTRON:  '1',
   }
 
-  serverProc = spawn(nodeExe, [SERVER_ENTRY], {
+  // Muat .env ke environment
+  if (fs.existsSync(ENV_PATH)) {
+    fs.readFileSync(ENV_PATH, 'utf8').split('\n').forEach(line => {
+      const m = line.trim().match(/^([A-Z_][A-Z0-9_]*)=(.*)$/)
+      if (m && !env[m[1]]) env[m[1]] = m[2]
+    })
+  }
+
+  serverProc = spawn(process.execPath, [SERVER_ENTRY], {
     env,
     cwd:   ROOT,
+    // PENTING: pipe tapi dengan error handling
+    // jangan biarkan stdout/stderr crash saat parent mati
     stdio: ['ignore', 'pipe', 'pipe'],
+    detached: false,
   })
 
+  // ── Handle stdout dengan safe error catching ──
   serverProc.stdout.on('data', data => {
-    const msg = data.toString()
-    process.stdout.write('[Server] ' + msg)
-    if (msg.includes('VIEWER MERUSUH') || msg.includes('running')) {
-      serverReady = true
-      loadDashboard()
-    }
+    try {
+      const msg = data.toString()
+      log('[server] ' + msg.trim())
+      if (!serverReady && (
+        msg.includes('VIEWER MERUSUH') ||
+        msg.includes('running') ||
+        msg.includes('localhost')
+      )) {
+        serverReady = true
+        log('Server ready — loading dashboard')
+        // Delay kecil agar server benar-benar siap terima koneksi
+        setTimeout(loadDashboard, 500)
+      }
+    } catch {}
   })
 
   serverProc.stderr.on('data', data => {
-    process.stderr.write('[Server ERR] ' + data.toString())
+    try { log('[server ERR] ' + data.toString().trim()) } catch {}
   })
 
-  serverProc.on('exit', (code) => {
-    console.log(`Server exited with code ${code}`)
+  // ── Handle EPIPE — ini normal saat proses mati ──
+  serverProc.stdout.on('error', err => {
+    if (err.code !== 'EPIPE') log('stdout error: ' + err.message)
+  })
+  serverProc.stderr.on('error', err => {
+    if (err.code !== 'EPIPE') log('stderr error: ' + err.message)
+  })
+
+  serverProc.on('error', err => {
+    log('Server spawn error: ' + err.message)
+  })
+
+  serverProc.on('exit', (code, signal) => {
+    log(`Server exited: code=${code} signal=${signal}`)
     serverReady = false
-    if (code !== 0 && mainWindow) {
+    serverProc  = null
+
+    if (!isQuitting && mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.executeJavaScript(`
-        document.body.innerHTML = '<div style="font-family:sans-serif;padding:40px;text-align:center;background:#0d0f14;color:#e8eaf0;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center"><div style="font-size:48px;margin-bottom:16px">⚠️</div><h2>Server berhenti tidak terduga</h2><p style="color:#8b92a8;margin-top:8px">Restart aplikasi untuk mencoba lagi</p></div>'
-      `)
+        if (!document.getElementById('vm-crash-overlay')) {
+          const el = document.createElement('div')
+          el.id = 'vm-crash-overlay'
+          el.style = 'position:fixed;inset:0;background:#0d0f14;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;font-family:sans-serif;color:#e8eaf0'
+          el.innerHTML = '<div style="font-size:48px;margin-bottom:16px">⚠️</div><h2 style="margin:0">Server berhenti</h2><p style="color:#8b92a8;margin-top:8px">Klik tombol di bawah untuk restart</p><button onclick="location.reload()" style="margin-top:20px;padding:10px 24px;background:#7c3aed;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer">🔄 Restart</button>'
+          document.body.appendChild(el)
+        }
+      `).catch(() => {})
     }
   })
+
+  // Fallback: jika server tidak kirim sinyal ready dalam 8 detik, load anyway
+  setTimeout(() => {
+    if (!serverReady) {
+      log('Server start timeout — loading dashboard anyway')
+      serverReady = true
+      loadDashboard()
+    }
+  }, 8000)
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Poll server hingga ready, lalu load dashboard
+// Load dashboard di window
 // ─────────────────────────────────────────────────────────────────────
 function loadDashboard() {
-  if (!mainWindow) return
+  if (!mainWindow || mainWindow.isDestroyed()) return
   const url = `http://localhost:${serverPort}/dashboard`
-  mainWindow.loadURL(url)
+  log('Loading dashboard: ' + url)
+  mainWindow.loadURL(url).catch(err => {
+    log('loadURL error: ' + err.message)
+    // Retry setelah 2 detik
+    setTimeout(() => {
+      if (!mainWindow?.isDestroyed()) mainWindow.loadURL(url).catch(() => {})
+    }, 2000)
+  })
 }
 
-function waitForServer(maxAttempts = 30) {
-  return new Promise((resolve, reject) => {
-    let attempts = 0
-    const check = () => {
-      http.get(`http://localhost:${serverPort}/api/status`, res => {
-        if (res.statusCode === 200) resolve()
-        else retry()
-      }).on('error', retry)
-    }
-    const retry = () => {
-      attempts++
-      if (attempts >= maxAttempts) reject(new Error('Server timeout'))
-      else setTimeout(check, 500)
-    }
-    check()
-  })
+// ─────────────────────────────────────────────────────────────────────
+// Resolve icon path (benar baik di dev maupun packaged)
+// ─────────────────────────────────────────────────────────────────────
+function resolveIcon(filename) {
+  const candidates = [
+    // Saat packaged: di extraResources atau di sebelah exe
+    path.join(process.resourcesPath, filename),
+    path.join(path.dirname(app.getPath('exe')), 'resources', filename),
+    // Saat dev
+    path.join(__dirname, 'assets', filename),
+    path.join(ROOT, 'electron', 'assets', filename),
+  ]
+  for (const p of candidates) {
+    if (fs.existsSync(p)) return p
+  }
+  return null
 }
 
 // ─────────────────────────────────────────────────────────────────────
 // Buat main window
 // ─────────────────────────────────────────────────────────────────────
 function createWindow() {
+  const iconPath = resolveIcon('icon.png')
+  log('Window icon: ' + (iconPath || 'none'))
+
   mainWindow = new BrowserWindow({
     width:           1200,
     height:          750,
-    minWidth:        800,
-    minHeight:       550,
+    minWidth:        900,
+    minHeight:       600,
     title:           'Viewer Merusuh',
     backgroundColor: '#0d0f14',
-    icon:            path.join(__dirname, 'assets', 'icon.png'),
+    icon:            iconPath || undefined,
     webPreferences: {
-      nodeIntegration:     false,
-      contextIsolation:    true,
-      preload:             path.join(__dirname, 'preload.js'),
+      nodeIntegration:  false,
+      contextIsolation: true,
+      preload:          path.join(__dirname, 'preload.js'),
     },
-    show: false,  // tampil setelah server ready
+    show: false,
   })
 
   // Loading screen sementara server booting
   mainWindow.loadFile(path.join(__dirname, 'loading.html'))
-  mainWindow.once('ready-to-show', () => mainWindow.show())
+    .catch(() => mainWindow.loadURL('about:blank'))
 
-  // Buka link eksternal di browser default
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show()
+    log('Window shown')
+  })
+
+  // Buka link eksternal di browser default (bukan Electron)
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('http://localhost')) return { action: 'allow' }
+    if (url.startsWith(`http://localhost:${serverPort}`)) return { action: 'allow' }
     shell.openExternal(url)
     return { action: 'deny' }
   })
 
-  mainWindow.on('closed', () => { mainWindow = null })
+  // Tombol X: sembunyikan ke tray, jangan quit
+  mainWindow.on('close', e => {
+    if (!isQuitting) {
+      e.preventDefault()
+      mainWindow.hide()
+      // Tampilkan balloon info pertama kali
+      if (tray && process.platform === 'win32') {
+        try {
+          tray.displayBalloon({
+            iconType: 'info',
+            title:    'Viewer Merusuh tetap berjalan',
+            content:  'Server masih aktif di background. Klik kanan ikon tray untuk membuka kembali.',
+          })
+        } catch {}
+      }
+    }
+  })
 
-  // Sembunyikan menu bar (pakai dashboard sebagai UI)
+  mainWindow.on('closed', () => { mainWindow = null })
   mainWindow.setMenuBarVisibility(false)
 }
 
@@ -237,139 +331,153 @@ function createWindow() {
 // System Tray
 // ─────────────────────────────────────────────────────────────────────
 function createTray() {
-  const iconPath = path.join(__dirname, 'assets', 'tray-icon.png')
-  const icon     = fs.existsSync(iconPath)
-    ? nativeImage.createFromPath(iconPath)
-    : nativeImage.createEmpty()
+  // Cari icon tray
+  const trayIconPath = resolveIcon('tray-icon.png') || resolveIcon('icon.png')
+  log('Tray icon: ' + (trayIconPath || 'none (using empty)'))
 
-  tray = new Tray(icon)
-  tray.setToolTip('Viewer Merusuh')
-
-  const updateMenu = () => {
-    const menu = Menu.buildFromTemplate([
-      {
-        label:   'Viewer Merusuh',
-        enabled: false,
-      },
-      { type: 'separator' },
-      {
-        label:   serverReady ? '🟢 Server Running' : '🔴 Server Starting...',
-        enabled: false,
-      },
-      {
-        label: `Port: ${serverPort}`,
-        enabled: false,
-      },
-      { type: 'separator' },
-      {
-        label: '📊 Buka Dashboard',
-        click: () => {
-          if (mainWindow) {
-            mainWindow.show()
-            mainWindow.focus()
-          }
-        },
-      },
-      {
-        label: '🌐 Buka di Browser',
-        click: () => shell.openExternal(`http://localhost:${serverPort}/dashboard`),
-      },
-      {
-        label: '📺 Copy URL Overlay OBS',
-        click: () => {
-          require('electron').clipboard.writeText(`http://localhost:${serverPort}/overlay`)
-          tray.displayBalloon({
-            title:   'URL Overlay Disalin!',
-            content: `http://localhost:${serverPort}/overlay — paste ke OBS Browser Source`,
-          })
-        },
-      },
-      { type: 'separator' },
-      {
-        label: '❌ Keluar',
-        click: () => app.quit(),
-      },
-    ])
-    tray.setContextMenu(menu)
+  let trayIcon
+  if (trayIconPath) {
+    trayIcon = nativeImage.createFromPath(trayIconPath)
+    // Resize ke 16x16 untuk tray (Windows requirement)
+    if (!trayIcon.isEmpty()) {
+      trayIcon = trayIcon.resize({ width: 16, height: 16 })
+    }
   }
 
-  updateMenu()
-  // Update menu tiap 5 detik untuk reflect status server
-  setInterval(updateMenu, 5000)
+  if (!trayIcon || trayIcon.isEmpty()) {
+    // Fallback: buat icon 16x16 ungu dari base64
+    const PURPLE_ICO = Buffer.from(
+      '00000100010010100000010020006804000016000000280000001000000020000000' +
+      '0100200000000000000000000000000000000000000000000000000000000000000000' +
+      '00000000000000000000000000000000000000000000000000000000ed3a7cff'.replace(/\s/g,''),
+      'hex'
+    )
+    trayIcon = nativeImage.createEmpty()
+  }
+
+  try {
+    tray = new Tray(trayIcon)
+  } catch (e) {
+    log('Tray creation error: ' + e.message)
+    // Coba lagi dengan empty image
+    try { tray = new Tray(nativeImage.createEmpty()) } catch {}
+  }
+
+  if (!tray) return
+
+  tray.setToolTip('Viewer Merusuh')
+
+  const buildMenu = () => Menu.buildFromTemplate([
+    { label: '🎮 Viewer Merusuh v1.0.0', enabled: false },
+    { type: 'separator' },
+    {
+      label:   serverReady ? '🟢 Server Running' : '🔴 Server Starting...',
+      enabled: false,
+    },
+    { label: `Port: ${serverPort}`, enabled: false },
+    { type: 'separator' },
+    {
+      label: '📊 Buka Dashboard',
+      click: () => {
+        if (!mainWindow || mainWindow.isDestroyed()) createWindow()
+        mainWindow.show()
+        mainWindow.focus()
+        if (serverReady) loadDashboard()
+      },
+    },
+    {
+      label: '🌐 Buka di Browser',
+      click: () => shell.openExternal(`http://localhost:${serverPort}/dashboard`),
+    },
+    {
+      label: '📺 Copy URL Overlay OBS',
+      click: () => {
+        clipboard.writeText(`http://localhost:${serverPort}/overlay`)
+        try {
+          tray.displayBalloon({
+            iconType: 'info',
+            title:    'URL Overlay Disalin!',
+            content:  `http://localhost:${serverPort}/overlay`,
+          })
+        } catch {}
+      },
+    },
+    {
+      label: '📁 Buka Folder Data',
+      click: () => shell.openPath(USER_DATA),
+    },
+    { type: 'separator' },
+    {
+      label: '🔄 Restart Server',
+      click: async () => {
+        if (serverProc) {
+          serverProc.kill()
+          await new Promise(r => setTimeout(r, 1500))
+        }
+        serverReady = false
+        startServer()
+      },
+    },
+    { type: 'separator' },
+    {
+      label: '❌ Keluar',
+      click: () => {
+        isQuitting = true
+        app.quit()
+      },
+    },
+  ])
+
+  const refreshMenu = () => {
+    try { tray.setContextMenu(buildMenu()) } catch {}
+  }
+
+  refreshMenu()
+  setInterval(refreshMenu, 3000)
 
   tray.on('double-click', () => {
-    if (mainWindow) { mainWindow.show(); mainWindow.focus() }
+    if (!mainWindow || mainWindow.isDestroyed()) createWindow()
+    mainWindow.show()
+    mainWindow.focus()
+  })
+
+  tray.on('click', () => {
+    if (!mainWindow || mainWindow.isDestroyed()) createWindow()
+    mainWindow.show()
+    mainWindow.focus()
   })
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// IPC handlers — komunikasi antara renderer (dashboard) dan main process
+// IPC handlers
 // ─────────────────────────────────────────────────────────────────────
 function setupIPC() {
-  // Buka folder userData di File Explorer
-  ipcMain.handle('open-user-data', () => {
-    shell.openPath(app.getPath('userData'))
-  })
+  ipcMain.handle('open-user-data', () => shell.openPath(USER_DATA))
 
-  // Restart server
   ipcMain.handle('restart-server', async () => {
     if (serverProc) {
       serverProc.kill()
-      await new Promise(r => setTimeout(r, 1000))
+      await new Promise(r => setTimeout(r, 1500))
     }
+    serverReady = false
     await startServer()
     return { ok: true }
   })
 
-  // Info app
   ipcMain.handle('get-app-info', () => ({
     version:  app.getVersion(),
-    userData: app.getPath('userData'),
+    userData: USER_DATA,
     port:     serverPort,
     packaged: IS_PACKAGED,
+    logPath,
   }))
 }
 
 // ─────────────────────────────────────────────────────────────────────
 // App lifecycle
 // ─────────────────────────────────────────────────────────────────────
-app.whenReady().then(async () => {
-  ensureUserData()
-  ensureDatabase()
-  setupIPC()
-  createWindow()
-  createTray()
 
-  // Start server, tunggu ready, lalu load dashboard
-  await startServer()
-  try {
-    await waitForServer(40)
-    loadDashboard()
-  } catch {
-    // Server lambat start — tetap coba load
-    setTimeout(loadDashboard, 3000)
-  }
-})
-
-app.on('window-all-closed', () => {
-  // Di Windows/Linux: app tetap jalan di tray walau window ditutup
-  if (process.platform === 'darwin') app.quit()
-})
-
-app.on('activate', () => {
-  if (!mainWindow) createWindow()
-  else { mainWindow.show(); mainWindow.focus() }
-})
-
-app.on('before-quit', () => {
-  // Matikan server saat app ditutup
-  if (serverProc) {
-    serverProc.kill('SIGTERM')
-    serverProc = null
-  }
-})
-
-// Single instance lock — cegah buka 2x
+// Single instance lock
 const gotLock = app.requestSingleInstanceLock()
 if (!gotLock) {
   app.quit()
@@ -378,3 +486,50 @@ if (!gotLock) {
     if (mainWindow) { mainWindow.show(); mainWindow.focus() }
   })
 }
+
+app.whenReady().then(async () => {
+  log('App ready — packaged: ' + IS_PACKAGED)
+  log('ROOT: ' + ROOT)
+  log('userData: ' + USER_DATA)
+
+  ensureUserData()
+  ensureDatabase()
+  setupIPC()
+  createWindow()
+
+  // Buat tray setelah window (hindari race condition)
+  setTimeout(createTray, 500)
+
+  await startServer()
+})
+
+// Tutup window tapi jangan quit (tetap di tray)
+app.on('window-all-closed', () => {
+  // Intentionally tidak quit — server tetap jalan di tray
+  if (process.platform === 'darwin') app.quit()
+})
+
+app.on('activate', () => {
+  if (!mainWindow || mainWindow.isDestroyed()) createWindow()
+  else { mainWindow.show(); mainWindow.focus() }
+})
+
+// Cleanup saat benar-benar quit
+app.on('before-quit', () => {
+  log('App quitting...')
+  isQuitting = true
+  if (serverProc) {
+    try { serverProc.kill('SIGTERM') } catch {}
+    serverProc = null
+  }
+})
+
+// Tangkap uncaught exception agar tidak muncul dialog error menakutkan
+process.on('uncaughtException', err => {
+  log('Uncaught: ' + err.message)
+  // EPIPE adalah error normal, tidak perlu ditampilkan ke user
+  if (err.code === 'EPIPE') return
+  if (!isQuitting) {
+    dialog.showErrorBox('Error', err.message + '\n\nLog: ' + logPath)
+  }
+})

@@ -7,6 +7,14 @@ module.exports = {
   copyright:       'MIT License',
   electronVersion: '28.3.3',  // harus exact, tanpa ^ atau ~
 
+  // Download Electron dengan ffmpeg support (fix ffmpeg.dll not found)
+  electronDownload: {
+    version: '28.3.3',
+  },
+
+  // Nama executable
+  executableName: 'viewer-merusuh',
+
   // CATATAN: 'main' TIDAK valid di electron-builder config!
   // Entry point diambil dari package.json -> "main"
   // Pastikan root package.json punya: "main": "electron/main.js"
@@ -40,9 +48,22 @@ module.exports = {
 
   asar: true,
   asarUnpack: [
+    // Native modules harus di luar asar
     'node_modules/better-sqlite3/**/*',
     'node_modules/bindings/**/*',
     'node_modules/file-uri-to-path/**/*',
+  ],
+
+  // ffmpeg.dll: copy ke folder resources agar Electron bisa akses
+  extraFiles: [
+    {
+      from: 'electron/assets/icon.png',
+      to:   'resources/icon.png',
+    },
+    {
+      from: 'electron/assets/tray-icon.png',
+      to:   'resources/tray-icon.png',
+    },
   ],
 
   extraResources: [
