@@ -46,8 +46,15 @@ app.use(cors())
 // ──────────────────────────────────────────────────
 // Static files
 // ──────────────────────────────────────────────────
-app.use('/overlay',   express.static(path.join(__dirname, '../overlay')))
-app.use('/dashboard', express.static(path.join(__dirname, '../dashboard/dist')))
+// Saat packaged di Electron: __dirname = resources/app/server/
+// Overlay dan dashboard ada di resources/app/overlay/ dan resources/app/dashboard/dist/
+// Gunakan ROOT yang bisa override via env, atau fallback ke path relatif
+const APP_ROOT = process.env.ELECTRON
+  ? path.join(__dirname, '..')          // resources/app/server/../ = resources/app/
+  : path.join(__dirname, '..')          // dev: server/../ = project root
+
+app.use('/overlay',   express.static(path.join(APP_ROOT, 'overlay')))
+app.use('/dashboard', express.static(path.join(APP_ROOT, 'dashboard', 'dist')))
 
 // ──────────────────────────────────────────────────
 // Webhook routes
