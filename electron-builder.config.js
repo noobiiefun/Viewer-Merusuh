@@ -27,23 +27,45 @@ module.exports = {
   },
 
   files: [
+    // Electron process
     'electron/main.js',
     'electron/preload.js',
     'electron/loading.html',
+
+    // Backend server (di-require langsung dari main process)
     'server/**/*',
+
+    // Dashboard build
     'dashboard/dist/**/*',
+
+    // OBS overlay
     'overlay/**/*',
+
+    // Config template
     '.env.example',
     'package.json',
+
+    // node_modules — WAJIB semua ada agar server bisa require
     'node_modules/**/*',
+
+    // Exclude yang tidak perlu (hemat ukuran)
     '!node_modules/.cache/**/*',
     '!node_modules/electron/**/*',
     '!node_modules/electron-builder/**/*',
+    '!node_modules/electron-rebuild/**/*',
+    '!node_modules/@electron/**/*',
     '!node_modules/nodemon/**/*',
     '!node_modules/.bin/**/*',
     '!dashboard/src/**/*',
     '!dashboard/node_modules/**/*',
     '!electron/node_modules/**/*',
+    '!*.md',
+    '!docs/**/*',
+    '!adapters/**/*',
+    '!plugins/**/*',
+    '!installer/**/*',
+    '!build-electron.js',
+    '!electron-builder.config.js',
   ],
 
   asar: true,
@@ -67,9 +89,15 @@ module.exports = {
   ],
 
   extraResources: [
-    { from: 'adapters', to: 'adapters', filter: ['**/*'] },
-    { from: 'plugins',  to: 'plugins',  filter: ['**/*'] },
-    { from: 'docs',     to: 'docs',     filter: ['**/*'] },
+    // Icon — agar resolveIcon() bisa temukan di process.resourcesPath
+    { from: 'electron/assets/icon.png',     to: 'icon.png' },
+    { from: 'electron/assets/tray-icon.png', to: 'tray-icon.png' },
+
+    // AHK scripts (diakses saat runtime oleh adapter)
+    { from: 'adapters', to: 'app/adapters', filter: ['**/*'] },
+
+    // Game plugins (user install manual ke game)
+    { from: 'plugins',  to: 'app/plugins',  filter: ['**/*'] },
   ],
 
   win: {

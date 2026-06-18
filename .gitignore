@@ -1,9 +1,41 @@
+# ── Dependencies ──────────────────────────────
 node_modules/
+dashboard/node_modules/
+electron/node_modules/
+
+# ── Environment & Secrets ─────────────────────
 .env
+.env.backup
+*.env.local
+
+# ── Database ──────────────────────────────────
 *.db
 *.db-journal
+*.db-wal
+*.db-shm
+
+# ── Build outputs — JANGAN di-commit ──────────
 dist/
-.DS_Store
-Thumbs.db
+dist-electron/
+dashboard/dist/
+build/
+
+# ── Logs ──────────────────────────────────────
 logs/
 *.log
+app.log
+
+# ── OS files ──────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Editor ────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Backup files ──────────────────────────────
+*.backup
+*.bak

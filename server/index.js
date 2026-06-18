@@ -142,24 +142,15 @@ server.listen(PORT, () => {
 // Handle port bentrok — tampilkan pesan yang jelas
 server.on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
-    console.error(`
-╔══════════════════════════════════════════════╗
-║  ❌  PORT ${PORT} SUDAH DIPAKAI APLIKASI LAIN  ║
-╠══════════════════════════════════════════════╣
-║  Solusi: ganti PORT di file .env             ║
-║                                              ║
-║  Contoh port alternatif:                     ║
-║    PORT=3001  (paling umum)                  ║
-║    PORT=3030                                 ║
-║    PORT=4000                                 ║
-║    PORT=8080                                 ║
-║                                              ║
-║  Lalu jalankan ulang: npm run dev            ║
-╚══════════════════════════════════════════════╝
-    `)
-    process.exit(1)
+    console.error(`❌ PORT ${PORT} sudah dipakai aplikasi lain!`)
+    console.error(`   Ganti PORT di file .env lalu restart.`)
   } else {
-    console.error('❌ Server error:', err)
+    console.error('❌ Server error:', err.message)
+  }
+  // Emit event agar Electron bisa handle — jangan process.exit di sini
+  // karena saat dijalankan dari Electron, exit akan kill seluruh app
+  server.emit('vm-error', err)
+  if (!process.env.ELECTRON) {
     process.exit(1)
   }
 })
