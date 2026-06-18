@@ -13,9 +13,10 @@ const net  = require('net')
 // ── Path resolution ────────────────────────────────────────────────────
 const IS_PACKAGED = app.isPackaged
 
-const ROOT = IS_PACKAGED
-  ? path.join(process.resourcesPath, 'app')
-  : path.join(__dirname, '..')
+// Saat packaged: __dirname = resources/app/electron/
+// ROOT harus = resources/app/ (satu level di atas electron/)
+// Saat dev: ROOT = project root (satu level di atas electron/)
+const ROOT = path.join(__dirname, '..')
 
 const USER_DATA = app.getPath('userData')
 const ENV_PATH  = path.join(USER_DATA, '.env')
@@ -359,9 +360,23 @@ if (!gotLock) {
 
 app.whenReady().then(async () => {
   log('=== Viewer Merusuh starting ===')
-  log('Packaged: ' + IS_PACKAGED)
-  log('ROOT: ' + ROOT)
-  log('userData: ' + USER_DATA)
+  log('Packaged: '     + IS_PACKAGED)
+  log('__dirname: '    + __dirname)
+  log('ROOT: '         + ROOT)
+  log('resourcesPath: '+ process.resourcesPath)
+  log('userData: '     + USER_DATA)
+
+  // Verifikasi server/index.js bisa ditemukan
+  const serverPath = path.join(ROOT, 'server', 'index.js')
+  const serverExists = require('fs').existsSync(serverPath)
+  log('server/index.js exists: ' + serverExists + ' at: ' + serverPath)
+  if (!serverExists) {
+    // Coba list isi ROOT untuk debug
+    try {
+      const contents = require('fs').readdirSync(ROOT)
+      log('ROOT contents: ' + contents.join(', '))
+    } catch (e) { log('Cannot read ROOT: ' + e.message) }
+  }
 
   ensureUserData()
   ensureDatabase()
