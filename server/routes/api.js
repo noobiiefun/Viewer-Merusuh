@@ -116,7 +116,7 @@ router.put('/config', (req, res) => {
 
 // POST /api/test/donation — simulasi donasi (dev only)
 router.post('/test/donation', (req, res) => {
-  if (process.env.NODE_ENV === 'production') {
+  if (process.env.NODE_ENV === 'production' && !process.env.ELECTRON) {
     return res.status(403).json({ success: false, error: 'Test endpoint hanya tersedia di development mode' })
   }
   const { amount = 10000, donatorName = 'Test Viewer', message = 'test merusuh!', platform = 'test' } = req.body

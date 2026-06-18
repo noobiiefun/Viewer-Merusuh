@@ -23,7 +23,8 @@ function addLog(entry) {
 // Body: { platform, donatorName, amount, message }
 // ────────────────────────────────────────────────────────────────────
 router.post('/donate', (req, res) => {
-  if (process.env.NODE_ENV === 'production') {
+  // Izinkan testing di semua mode saat dijalankan dari Electron
+  if (process.env.NODE_ENV === 'production' && !process.env.ELECTRON) {
     return res.status(403).json({ success: false, error: 'Testing hanya tersedia di development mode' })
   }
 
@@ -81,7 +82,8 @@ router.post('/donate', (req, res) => {
 // Body: { effectId }
 // ────────────────────────────────────────────────────────────────────
 router.post('/trigger', (req, res) => {
-  if (process.env.NODE_ENV === 'production') {
+  // Izinkan testing di semua mode saat dijalankan dari Electron
+  if (process.env.NODE_ENV === 'production' && !process.env.ELECTRON) {
     return res.status(403).json({ success: false, error: 'Testing hanya tersedia di development mode' })
   }
 

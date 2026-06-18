@@ -88,8 +88,11 @@ function ensureUserData() {
 
   // Override path penting
   process.env.DB_PATH   = DB_PATH
-  process.env.NODE_ENV  = process.env.NODE_ENV || 'production'
+  process.env.ENV_PATH  = ENV_PATH   // dibaca oleh server/routes/env.js
   process.env.ELECTRON  = '1'
+  // NODE_ENV: jangan override, biarkan ikut nilai dari .env yang sudah di-load
+  // Default 'development' agar testing endpoint aktif
+  if (!process.env.NODE_ENV) process.env.NODE_ENV = 'development'
 }
 
 function ensureDatabase() {

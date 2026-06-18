@@ -7,7 +7,9 @@ const fs     = require('fs')
 const path   = require('path')
 const crypto = require('crypto')
 
-const ENV_PATH = path.join(__dirname, '../../.env')
+// Saat dijalankan dari Electron: ENV_PATH di-set oleh main.js ke userData
+// Saat dev normal: fallback ke root project
+const ENV_PATH = process.env.ENV_PATH || path.join(__dirname, '../../.env')
 const ENV_EXAMPLE_PATH = path.join(__dirname, '../../.env.example')
 
 // ── Definisi semua field yang dikelola ──────────────────────────────
