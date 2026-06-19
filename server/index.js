@@ -98,8 +98,9 @@ io.on('connection', (socket) => {
   })
 })
 
-eventBus.on('donation',  (donation) => { io.emit('donation', donation) })
-eventBus.on('test_log',  (log)      => { io.emit('test_log', log) })
+eventBus.on('donation',       (donation) => { io.emit('donation', donation) })
+eventBus.on('test_log',       (log)      => { io.emit('test_log', log) })
+eventBus.on('config_updated', ()          => { io.emit('config_updated', {}) })
 eventBus.on('effect',   ({ effect, donation }) => {
   io.emit('effect', {
     id:         effect.id,

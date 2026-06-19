@@ -109,6 +109,11 @@ router.put('/config', (req, res) => {
     for (const [key, value] of entries) update.run(key, String(value))
   })
   updateMany(Object.entries(req.body))
+  // Broadcast ke overlay agar reload config
+  try {
+    const eventBus = require('../core/eventBus')
+    eventBus.emit('config_updated', {})
+  } catch {}
   res.json({ success: true })
 })
 

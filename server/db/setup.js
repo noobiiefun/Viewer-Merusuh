@@ -88,7 +88,31 @@ function setup() {
   seedConfig.run('overlay_position',           'bottom-right')
   seedConfig.run('min_donation_amount',        '1000')
   seedConfig.run('queue_mode',                 'sequential')
-  seedConfig.run('notification_duration_ms',   '5000')   // ← BARU: durasi notif OBS
+  seedConfig.run('notification_duration_ms',   '5000')
+
+  // ── Overlay: Notifikasi ──────────────────────────────
+  seedConfig.run('notif_position',     'bottom-right')
+  seedConfig.run('notif_bg',           '#0d0f14')
+  seedConfig.run('notif_bg_opacity',   '0.92')
+  seedConfig.run('notif_border',       '#7c3aed')
+  seedConfig.run('notif_text',         '#ffffff')
+  seedConfig.run('notif_amount_color', '#86efac')
+  seedConfig.run('notif_effect_color', '#fbbf24')
+
+  // ── Overlay: Price List ──────────────────────────────
+  seedConfig.run('pricelist_show',          'true')
+  seedConfig.run('pricelist_position',      'top-right')
+  seedConfig.run('pricelist_title',         'Viewer Merusuh')
+  seedConfig.run('pricelist_subtitle',      'List Harga Merusuh')
+  seedConfig.run('pricelist_title_color',   '#ffffff')
+  seedConfig.run('pricelist_badge_bg',      '#000000')
+  seedConfig.run('pricelist_badge_text',    '#ffffff')
+  seedConfig.run('pricelist_label_bg',      '#1e2330')
+  seedConfig.run('pricelist_label_text',    '#ffffff')
+  seedConfig.run('pricelist_items_per_page','5')
+  seedConfig.run('pricelist_rotate_sec',    '10')
+  seedConfig.run('pricelist_hide_after_min','5')
+  seedConfig.run('pricelist_nav_color',     '#7c3aed')
 
   db.close()
   console.log(`✅ Database siap: ${DB_PATH}`)
