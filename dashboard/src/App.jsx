@@ -8,6 +8,7 @@ import VjoyPage     from './pages/VjoyPage'
 import TestingPage  from './pages/TestingPage'
 import SecretsPage  from './pages/SecretsPage'
 import OverlayPage  from './pages/OverlayPage'
+import AhkPage      from './pages/AhkPage'
 import EffectsPage from './pages/EffectsPage'
 import LogsPage from './pages/LogsPage'
 import ConfigPage from './pages/ConfigPage'
@@ -37,6 +38,7 @@ export default function App() {
     vjoy:      <VjoyPage    toast={toast} />,
     testing:   <TestingPage toast={toast} lastEffect={lastEffect} lastTestLog={lastTestLog} />,
     overlay:   <OverlayPage toast={toast} />,
+    ahk:       <AhkPage      toast={toast} />,
     secrets:   <SecretsPage toast={toast} />,
     config:    <ConfigPage toast={toast} />,
   }

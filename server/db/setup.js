@@ -84,6 +84,39 @@ function setup() {
 
   // Seed config default — termasuk notification_duration_ms
   const seedConfig = db.prepare(`INSERT OR IGNORE INTO config (key, value) VALUES (?, ?)`)
+  // Seed contoh custom AHK keys
+  const seedCustomKey = db.prepare(`
+    INSERT OR IGNORE INTO ahk_custom_keys
+      (id, name, description, key, modifier, mode, repeat, interval_ms, hold_ms, category)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `)
+  // Seed game groups
+  const seedGroup = db.prepare(`INSERT OR IGNORE INTO ahk_game_groups (id,name,game_name,icon) VALUES (?,?,?,?)`)
+  seedGroup.run(1, 'FPS',      'Valorant',        '🔫')
+  seedGroup.run(2, 'FPS',      'CS2',             '🔫')
+  seedGroup.run(3, 'FPS',      'PUBG',            '🎯')
+  seedGroup.run(4, 'Racing',   'BeamNG.drive',    '🏎️')
+  seedGroup.run(5, 'Racing',   'Forza Horizon',   '🏎️')
+  seedGroup.run(6, 'Action',   'GTA 5',           '💥')
+  seedGroup.run(7, 'Survival', 'Minecraft',       '⛏️')
+  seedGroup.run(8, 'Survival', 'Rust',            '🌲')
+
+  // Seed presets
+  const seedPreset = db.prepare(`INSERT OR IGNORE INTO ahk_presets (id,name,group_id,description,is_active) VALUES (?,?,?,?,?)`)
+  seedPreset.run(1, 'Default FPS (Valorant)', 1, 'Setting untuk game FPS Valorant', 1)
+  seedPreset.run(2, 'Default Racing (BeamNG)',4, 'Setting untuk BeamNG.drive', 0)
+
+  seedCustomKey.run(1, 'Buang Senjata (G)',     'Tekan G — buang item/senjata', 'g',     '',      'tap',  3,   300,  0,    'fps')
+  seedCustomKey.run(2, 'Reload (R)',             'Tekan R — reload senjata',     'r',     '',      'tap',  5,   200,  0,    'fps')
+  seedCustomKey.run(3, 'Jump (Space)',           'Loncat',                        'Space', '',      'tap',  1,   0,    0,    'action')
+  seedCustomKey.run(4, 'Crouch Hold (Ctrl)',     'Jongkok paksa 3 detik',        'LCtrl', '',      'hold', 1,   0,    3000, 'fps')
+  seedCustomKey.run(5, 'Use/Interact (E)',       'Gunakan / interaksi',          'e',     '',      'tap',  3,   500,  0,    'action')
+  seedCustomKey.run(6, 'Inventory (Tab)',        'Buka inventory',               'Tab',   '',      'tap',  1,   0,    0,    'survival')
+  seedCustomKey.run(7, 'Map (M)',               'Buka peta',                    'm',     '',      'tap',  1,   0,    0,    'action')
+  seedCustomKey.run(8, 'Prone (Z)',              'Tengkurap',                    'z',     '',      'tap',  1,   0,    0,    'fps')
+  seedCustomKey.run(9, 'Melee (V)',              'Serang melee',                 'v',     '',      'tap',  3,   300,  0,    'fps')
+  seedCustomKey.run(10,'Undo Spam (Ctrl+Z)',     'Spam Ctrl+Z',                  'z',     'LCtrl', 'combo',5,  100,  0,    'custom')
+
   seedConfig.run('overlay_theme',              'dark')
   seedConfig.run('overlay_position',           'bottom-right')
   seedConfig.run('min_donation_amount',        '1000')

@@ -152,6 +152,135 @@ router.get('/status', (req, res) => {
 
 // ─────────────────── AHK ───────────────────
 
+// ─────────────────── AHK CUSTOM KEYS ───────────────────
+
+// ─────────── AHK GAME GROUPS ───────────
+
+router.get('/ahk/groups', (req, res) => {
+  const db = getDB()
+  try { res.json({ success:true, data: db.prepare('SELECT * FROM ahk_game_groups ORDER BY name,game_name').all() }) }
+  catch { res.json({ success:true, data:[] }) }
+})
+router.post('/ahk/groups', (req, res) => {
+  const { name, game_name, icon } = req.body
+  if (!name || !game_name) return res.status(400).json({ success:false, error:'name dan game_name wajib' })
+  const db = getDB()
+  const r = db.prepare('INSERT INTO ahk_game_groups (name,game_name,icon) VALUES (?,?,?)').run(name, game_name, icon||'🎮')
+  res.status(201).json({ success:true, data:{ id: r.lastInsertRowid } })
+})
+router.put('/ahk/groups/:id', (req, res) => {
+  const db = getDB()
+  const { name, game_name, icon, is_active } = req.body
+  db.prepare('UPDATE ahk_game_groups SET name=COALESCE(?,name), game_name=COALESCE(?,game_name), icon=COALESCE(?,icon), is_active=COALESCE(?,is_active) WHERE id=?')
+    .run(name, game_name, icon, is_active, req.params.id)
+  res.json({ success:true })
+})
+router.delete('/ahk/groups/:id', (req, res) => {
+  getDB().prepare('DELETE FROM ahk_game_groups WHERE id=?').run(req.params.id)
+  res.json({ success:true })
+})
+
+// ─────────── AHK PRESETS ───────────
+
+router.get('/ahk/presets', (req, res) => {
+  const db = getDB()
+  try {
+    const presets = db.prepare(`
+      SELECT p.*, g.name as group_name, g.game_name, g.icon
+      FROM ahk_presets p
+      LEFT JOIN ahk_game_groups g ON p.group_id = g.id
+      ORDER BY p.is_active DESC, p.name
+    `).all()
+    res.json({ success:true, data: presets })
+  } catch { res.json({ success:true, data:[] }) }
+})
+router.post('/ahk/presets', (req, res) => {
+  const { name, group_id, description } = req.body
+  if (!name) return res.status(400).json({ success:false, error:'name wajib' })
+  const db = getDB()
+  const r = db.prepare('INSERT INTO ahk_presets (name,group_id,description) VALUES (?,?,?)').run(name, group_id||null, description||'')
+  res.status(201).json({ success:true, data:{ id: r.lastInsertRowid } })
+})
+router.put('/ahk/presets/:id', (req, res) => {
+  const db = getDB()
+  const { name, group_id, description } = req.body
+  db.prepare('UPDATE ahk_presets SET name=COALESCE(?,name), group_id=COALESCE(?,group_id), description=COALESCE(?,description) WHERE id=?')
+    .run(name, group_id, description, req.params.id)
+  res.json({ success:true })
+})
+router.delete('/ahk/presets/:id', (req, res) => {
+  getDB().prepare('DELETE FROM ahk_presets WHERE id=?').run(req.params.id)
+  res.json({ success:true })
+})
+// POST /api/ahk/presets/:id/activate — aktifkan preset (nonaktifkan lainnya)
+router.post('/ahk/presets/:id/activate', (req, res) => {
+  const db = getDB()
+  db.prepare('UPDATE ahk_presets SET is_active=0').run()
+  db.prepare('UPDATE ahk_presets SET is_active=1 WHERE id=?').run(req.params.id)
+  // Broadcast ke dashboard
+  try { require('../core/eventBus').emit('preset_changed', { id: parseInt(req.params.id) }) } catch {}
+  res.json({ success:true })
+})
+
+// GET /api/ahk/custom-keys — daftar custom key actions
+router.get('/ahk/custom-keys', (req, res) => {
+  const db = getDB()
+  try {
+    const rows = db.prepare('SELECT * FROM ahk_custom_keys ORDER BY category, name').all()
+    res.json({ success: true, data: rows })
+  } catch (e) {
+    res.json({ success: true, data: [] })
+  }
+})
+
+// POST /api/ahk/custom-keys — buat custom key baru
+router.post('/ahk/custom-keys', (req, res) => {
+  const { name, description, key, modifier, mode, repeat, interval_ms, hold_ms, category } = req.body
+  if (!name || !key) return res.status(400).json({ success: false, error: 'name dan key wajib diisi' })
+  const db = getDB()
+  const r = db.prepare(`
+    INSERT INTO ahk_custom_keys (name, description, key, modifier, mode, repeat, interval_ms, hold_ms, category)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(name, description||'', key, modifier||'', mode||'tap', repeat||1, interval_ms||200, hold_ms||0, category||'custom')
+  res.status(201).json({ success: true, data: { id: r.lastInsertRowid } })
+})
+
+// PUT /api/ahk/custom-keys/:id — update
+router.put('/ahk/custom-keys/:id', (req, res) => {
+  const db = getDB()
+  const { name, description, key, modifier, mode, repeat, interval_ms, hold_ms, category, is_active } = req.body
+  db.prepare(`
+    UPDATE ahk_custom_keys SET
+      name=COALESCE(?,name), description=COALESCE(?,description),
+      key=COALESCE(?,key), modifier=COALESCE(?,modifier),
+      mode=COALESCE(?,mode), repeat=COALESCE(?,repeat),
+      interval_ms=COALESCE(?,interval_ms), hold_ms=COALESCE(?,hold_ms),
+      category=COALESCE(?,category), is_active=COALESCE(?,is_active)
+    WHERE id=?
+  `).run(name,description,key,modifier,mode,repeat,interval_ms,hold_ms,category,is_active,req.params.id)
+  res.json({ success: true })
+})
+
+// DELETE /api/ahk/custom-keys/:id
+router.delete('/ahk/custom-keys/:id', (req, res) => {
+  const db = getDB()
+  db.prepare('DELETE FROM ahk_custom_keys WHERE id=?').run(req.params.id)
+  res.json({ success: true })
+})
+
+// POST /api/ahk/test-key — test custom key langsung (tanpa donasi)
+router.post('/ahk/test-key', (req, res) => {
+  if (process.env.NODE_ENV === 'production' && !process.env.ELECTRON) {
+    return res.status(403).json({ success: false, error: 'Test hanya di development mode' })
+  }
+  const { key, modifier, mode, repeat, interval_ms, hold_ms } = req.body
+  const { runGenericKey, runGenericCombo } = require('../adapters/ahk')
+  const ck = { key, modifier, mode, repeat: repeat||1, interval_ms: interval_ms||200, hold_ms: hold_ms||0 }
+  if (mode === 'combo') runGenericCombo(ck)
+  else                  runGenericKey(ck)
+  res.json({ success: true, message: `Key "${modifier ? modifier+'+' : ''}${key}" dikirim` })
+})
+
 // GET /api/ahk/actions — daftar action_key AHK
 router.get('/ahk/actions', (req, res) => {
   const { ACTION_REGISTRY } = require('../adapters/ahk')
@@ -226,7 +355,22 @@ router.get('/actions', (req, res) => {
     { action_key: 'beamng_random_damage',adapter: 'plugin', group: 'beamng', description: 'Kerusakan acak' },
     { action_key: 'beamng_chaos',        adapter: 'plugin', group: 'beamng', description: 'Semua efek chaos' },
   ]
-  res.json({ success: true, data: [...ahk, ...vjoy, ...pluginActions] })
+  // Custom keys dari database
+  let customKeys = []
+  try {
+    const db = getDB()
+    customKeys = db.prepare('SELECT * FROM ahk_custom_keys WHERE is_active=1 ORDER BY category,name').all()
+      .map(k => ({
+        action_key:  `custom_key_${k.id}`,
+        adapter:     'ahk',
+        group:       k.category,
+        description: `${k.name} — ${k.modifier ? k.modifier+'+' : ''}${k.key} (${k.mode})`,
+        isCustomKey: true,
+        keyData:     k,
+      }))
+  } catch {}
+
+  res.json({ success: true, data: [...ahk, ...vjoy, ...pluginActions, ...customKeys] })
 })
 
 function getVjoyDesc(key) {

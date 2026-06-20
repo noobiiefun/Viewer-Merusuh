@@ -31,7 +31,27 @@ export const api = {
   saveConfig:    (cfg)   => request('PUT', '/api/config', cfg),
   getAhkActions:  ()      => request('GET', '/api/ahk/actions'),
   getVjoyActions: ()      => request('GET', '/api/vjoy/actions'),
-  getActions:     ()      => request('GET', '/api/actions'),   // semua adapter
+  getActions:      ()      => request('GET', '/api/actions'),   // semua adapter
+
+  // AHK Game Groups
+  getGroups:       ()      => request('GET',    '/api/ahk/groups'),
+  createGroup:     (body)  => request('POST',   '/api/ahk/groups', body),
+  updateGroup:     (id, b) => request('PUT',    `/api/ahk/groups/${id}`, b),
+  deleteGroup:     (id)    => request('DELETE', `/api/ahk/groups/${id}`),
+
+  // AHK Presets
+  getPresets:      ()      => request('GET',    '/api/ahk/presets'),
+  createPreset:    (body)  => request('POST',   '/api/ahk/presets', body),
+  updatePreset:    (id, b) => request('PUT',    `/api/ahk/presets/${id}`, b),
+  deletePreset:    (id)    => request('DELETE', `/api/ahk/presets/${id}`),
+  activatePreset:  (id)    => request('POST',   `/api/ahk/presets/${id}/activate`),
+
+  // AHK Custom Keys
+  getCustomKeys:   ()      => request('GET',    '/api/ahk/custom-keys'),
+  createCustomKey: (body)  => request('POST',   '/api/ahk/custom-keys', body),
+  updateCustomKey: (id, b) => request('PUT',    `/api/ahk/custom-keys/${id}`, b),
+  deleteCustomKey: (id)    => request('DELETE', `/api/ahk/custom-keys/${id}`),
+  testKey:         (body)  => request('POST',   '/api/ahk/test-key', body),
   getStatus:     ()      => request('GET', '/api/status'),
   getQueue:      ()      => request('GET', '/api/queue'),
   testDonation:  (body)  => request('POST', '/api/test/donation', body),
