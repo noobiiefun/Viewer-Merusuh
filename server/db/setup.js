@@ -10,6 +10,7 @@ function setup() {
   db.pragma('journal_mode = WAL')
   db.pragma('foreign_keys = ON')
 
+  // ── BUAT SEMUA TABEL DULU sebelum insert apapun ─────────────────
   db.exec(`
     CREATE TABLE IF NOT EXISTS effects (
       id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -28,16 +29,16 @@ function setup() {
     );
 
     CREATE TABLE IF NOT EXISTS donation_logs (
-      id             INTEGER PRIMARY KEY AUTOINCREMENT,
-      platform       TEXT    NOT NULL,
-      donator_name   TEXT    NOT NULL DEFAULT 'Anonymous',
-      amount         INTEGER NOT NULL,
-      message        TEXT,
-      effect_id      INTEGER REFERENCES effects(id),
-      effect_name    TEXT,
-      status         TEXT    NOT NULL DEFAULT 'processed',
-      raw_payload    TEXT,
-      created_at     TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      platform     TEXT    NOT NULL,
+      donator_name TEXT    NOT NULL DEFAULT 'Anonymous',
+      amount       INTEGER NOT NULL,
+      message      TEXT,
+      effect_id    INTEGER REFERENCES effects(id),
+      effect_name  TEXT,
+      status       TEXT    NOT NULL DEFAULT 'processed',
+      raw_payload  TEXT,
+      created_at   TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
     );
 
     CREATE TABLE IF NOT EXISTS config (
@@ -46,106 +47,137 @@ function setup() {
       updated_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
     );
 
+    CREATE TABLE IF NOT EXISTS ahk_game_groups (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      name       TEXT    NOT NULL,
+      game_name  TEXT    NOT NULL,
+      icon       TEXT    NOT NULL DEFAULT '🎮',
+      is_active  INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+    );
+
+    CREATE TABLE IF NOT EXISTS ahk_presets (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      name        TEXT    NOT NULL,
+      group_id    INTEGER REFERENCES ahk_game_groups(id),
+      description TEXT,
+      is_active   INTEGER NOT NULL DEFAULT 0,
+      created_at  TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+    );
+
+    CREATE TABLE IF NOT EXISTS ahk_custom_keys (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      name        TEXT    NOT NULL,
+      description TEXT,
+      key         TEXT    NOT NULL,
+      modifier    TEXT    DEFAULT '',
+      mode        TEXT    NOT NULL DEFAULT 'tap',
+      repeat      INTEGER NOT NULL DEFAULT 1,
+      interval_ms INTEGER NOT NULL DEFAULT 200,
+      hold_ms     INTEGER NOT NULL DEFAULT 0,
+      category    TEXT    NOT NULL DEFAULT 'custom',
+      is_active   INTEGER NOT NULL DEFAULT 1,
+      created_at  TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+    );
+
     CREATE INDEX IF NOT EXISTS idx_effects_active ON effects(is_active, min_amount);
     CREATE INDEX IF NOT EXISTS idx_logs_created   ON donation_logs(created_at);
     CREATE INDEX IF NOT EXISTS idx_logs_platform  ON donation_logs(platform);
   `)
 
-  // Seed efek default
+  // ── SEED: Efek default ───────────────────────────────────────────
   const seedEffect = db.prepare(`
     INSERT OR IGNORE INTO effects
       (id, name, description, min_amount, max_amount, game_target, adapter, action_key, duration_ms, cooldown_ms)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
-  const defaults = [
-    // ── AHK: Racing ──
-    [1, 'Rem Mendadak',    'Memaksa kendaraan rem mendadak (keyboard)',        5000,  9999,  'racing', 'ahk',  'brake_force',       3000, 0],
-    [2, 'Handbrake',       'Rem tangan mendadak (keyboard)',                   5000,  9999,  'racing', 'ahk',  'handbrake',         2000, 0],
-    // ── AHK: Action ──
-    [3, 'Klakson Spam',    'Spam klakson berkali-kali',                       10000, 19999, 'action', 'ahk',  'horn_spam',         5000, 0],
-    [4, 'Hujan Bom',       'Spawn explosion di sekitar karakter',             20000, 49999, 'action', 'ahk',  'explosion_rain',    8000, 0],
-    [5, 'Chaos Ultimate',  'Semua efek sekaligus — total kacau',              50000, null,  'action', 'ahk',  'chaos_mode',       15000, 0],
-    // ── vJoy: Racing (controller) ──
-    [6, 'Rem Controller',  'Rem penuh via virtual controller (ViGEm)',         5000,  9999,  'racing', 'vjoy', 'vjoy_brake',        3000, 0],
-    [7, 'Steer Chaos',     'Steer kiri-kanan acak via controller',            10000, 19999, 'racing', 'vjoy', 'vjoy_random_steer', 5000, 0],
-    [8, 'Drift Chaos',     'Gas penuh + steer chaos via controller',          20000, 49999, 'racing', 'vjoy', 'vjoy_drift_chaos',  8000, 0],
-    [9, 'Disconnect Ctrl', 'Cabut-colok virtual controller sesaat',           15000, 29999, 'racing', 'vjoy', 'vjoy_disconnect',   2000, 0],
-    // ── Plugin: GTA 5 ──
-    [10, 'Wanted Naik',    'Tambah 3 bintang wanted (GTA 5 native)',         5000,  9999,  'gta5',   'plugin', 'gta5_wanted_up',    0,    0],
-    [11, 'Wanted Max',     'Langsung 6 bintang wanted (GTA 5 native)',       20000, 49999, 'gta5',   'plugin', 'gta5_wanted_max',   0,    0],
-    [12, 'Hujan Ledakan',  'Ledakan terus-menerus di sekitar player',        15000, 29999, 'gta5',   'plugin', 'gta5_explosion_rain', 8000, 0],
-    [13, 'Chaos GTA5',     'Wanted max + ledakan + NPC menyerang',           50000, null,  'gta5',   'plugin', 'gta5_chaos_mode',   15000, 0],
-    // ── Plugin: BeamNG ──
-    [14, 'Rem BeamNG',     'Rem mendadak (BeamNG native)',                   5000,  9999,  'beamng', 'plugin', 'beamng_brake',      3000, 0],
-    [15, 'Slow Motion',    'Waktu melambat 30% (BeamNG native)',             10000, 19999, 'beamng', 'plugin', 'beamng_slow_motion', 5000, 0],
-    [16, 'Chaos BeamNG',   'Gas + steer chaos + damage (BeamNG native)',     50000, null,  'beamng', 'plugin', 'beamng_chaos',      10000, 0],
-  ]
-  for (const row of defaults) seedEffect.run(...row)
+  ;[
+    [1,  'Rem Mendadak',    'Memaksa kendaraan rem mendadak (keyboard)',        5000,  9999,  'racing', 'ahk',    'brake_force',         3000, 0],
+    [2,  'Handbrake',       'Rem tangan mendadak (keyboard)',                   5000,  9999,  'racing', 'ahk',    'handbrake',           2000, 0],
+    [3,  'Klakson Spam',    'Spam klakson berkali-kali',                       10000, 19999, 'action', 'ahk',    'horn_spam',           5000, 0],
+    [4,  'Hujan Bom',       'Spawn explosion di sekitar karakter',             20000, 49999, 'action', 'ahk',    'explosion_rain',      8000, 0],
+    [5,  'Chaos Ultimate',  'Semua efek sekaligus — total kacau',              50000, null,  'action', 'ahk',    'chaos_mode',         15000, 0],
+    [6,  'Rem Controller',  'Rem penuh via virtual controller (ViGEm)',         5000,  9999,  'racing', 'vjoy',   'vjoy_brake',          3000, 0],
+    [7,  'Steer Chaos',     'Steer kiri-kanan acak via controller',            10000, 19999, 'racing', 'vjoy',   'vjoy_random_steer',   5000, 0],
+    [8,  'Drift Chaos',     'Gas penuh + steer chaos via controller',          20000, 49999, 'racing', 'vjoy',   'vjoy_drift_chaos',    8000, 0],
+    [9,  'Disconnect Ctrl', 'Cabut-colok virtual controller sesaat',           15000, 29999, 'racing', 'vjoy',   'vjoy_disconnect',     2000, 0],
+    [10, 'Wanted Naik',     'Tambah 3 bintang wanted (GTA 5 native)',           5000,  9999,  'gta5',   'plugin', 'gta5_wanted_up',         0, 0],
+    [11, 'Wanted Max',      'Langsung 6 bintang wanted (GTA 5 native)',        20000, 49999, 'gta5',   'plugin', 'gta5_wanted_max',        0, 0],
+    [12, 'Hujan Ledakan',   'Ledakan terus-menerus di sekitar player',         15000, 29999, 'gta5',   'plugin', 'gta5_explosion_rain', 8000, 0],
+    [13, 'Chaos GTA5',      'Wanted max + ledakan + NPC menyerang',            50000, null,  'gta5',   'plugin', 'gta5_chaos_mode',    15000, 0],
+    [14, 'Rem BeamNG',      'Rem mendadak (BeamNG native)',                     5000,  9999,  'beamng', 'plugin', 'beamng_brake',        3000, 0],
+    [15, 'Slow Motion',     'Waktu melambat 30% (BeamNG native)',              10000, 19999, 'beamng', 'plugin', 'beamng_slow_motion',  5000, 0],
+    [16, 'Chaos BeamNG',    'Gas + steer chaos + damage (BeamNG native)',      50000, null,  'beamng', 'plugin', 'beamng_chaos',       10000, 0],
+  ].forEach(row => seedEffect.run(...row))
 
-  // Seed config default — termasuk notification_duration_ms
-  const seedConfig = db.prepare(`INSERT OR IGNORE INTO config (key, value) VALUES (?, ?)`)
-  // Seed contoh custom AHK keys
-  const seedCustomKey = db.prepare(`
+  // ── SEED: Game groups ─────────────────────────────────────────────
+  const seedGroup = db.prepare(`INSERT OR IGNORE INTO ahk_game_groups (id,name,game_name,icon) VALUES (?,?,?,?)`)
+  ;[
+    [1, 'FPS',      'Valorant',       '🔫'],
+    [2, 'FPS',      'CS2',            '🔫'],
+    [3, 'FPS',      'PUBG',           '🎯'],
+    [4, 'Racing',   'BeamNG.drive',   '🏎️'],
+    [5, 'Racing',   'Forza Horizon',  '🏎️'],
+    [6, 'Action',   'GTA 5',          '💥'],
+    [7, 'Survival', 'Minecraft',      '⛏️'],
+    [8, 'Survival', 'Rust',           '🌲'],
+  ].forEach(row => seedGroup.run(...row))
+
+  // ── SEED: Presets ─────────────────────────────────────────────────
+  const seedPreset = db.prepare(`INSERT OR IGNORE INTO ahk_presets (id,name,group_id,description,is_active) VALUES (?,?,?,?,?)`)
+  ;[
+    [1, 'Default FPS (Valorant)', 1, 'Setting untuk game FPS Valorant', 1],
+    [2, 'Default Racing (BeamNG)',4, 'Setting untuk BeamNG.drive',       0],
+  ].forEach(row => seedPreset.run(...row))
+
+  // ── SEED: Custom keys ─────────────────────────────────────────────
+  const seedKey = db.prepare(`
     INSERT OR IGNORE INTO ahk_custom_keys
       (id, name, description, key, modifier, mode, repeat, interval_ms, hold_ms, category)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
-  // Seed game groups
-  const seedGroup = db.prepare(`INSERT OR IGNORE INTO ahk_game_groups (id,name,game_name,icon) VALUES (?,?,?,?)`)
-  seedGroup.run(1, 'FPS',      'Valorant',        '🔫')
-  seedGroup.run(2, 'FPS',      'CS2',             '🔫')
-  seedGroup.run(3, 'FPS',      'PUBG',            '🎯')
-  seedGroup.run(4, 'Racing',   'BeamNG.drive',    '🏎️')
-  seedGroup.run(5, 'Racing',   'Forza Horizon',   '🏎️')
-  seedGroup.run(6, 'Action',   'GTA 5',           '💥')
-  seedGroup.run(7, 'Survival', 'Minecraft',       '⛏️')
-  seedGroup.run(8, 'Survival', 'Rust',            '🌲')
+  ;[
+    [1,  'Buang Senjata (G)',   'Tekan G — buang item/senjata',  'g',     '',      'tap',   3, 300, 0,    'fps'],
+    [2,  'Reload (R)',           'Tekan R — reload senjata',      'r',     '',      'tap',   5, 200, 0,    'fps'],
+    [3,  'Jump (Space)',         'Loncat',                         'Space', '',      'tap',   1,   0, 0,    'action'],
+    [4,  'Crouch Hold (Ctrl)',   'Jongkok paksa 3 detik',         'LCtrl', '',      'hold',  1,   0, 3000, 'fps'],
+    [5,  'Use/Interact (E)',     'Gunakan / interaksi',           'e',     '',      'tap',   3, 500, 0,    'action'],
+    [6,  'Inventory (Tab)',      'Buka inventory',                'Tab',   '',      'tap',   1,   0, 0,    'survival'],
+    [7,  'Map (M)',              'Buka peta',                     'm',     '',      'tap',   1,   0, 0,    'action'],
+    [8,  'Prone (Z)',            'Tengkurap',                     'z',     '',      'tap',   1,   0, 0,    'fps'],
+    [9,  'Melee (V)',            'Serang melee',                  'v',     '',      'tap',   3, 300, 0,    'fps'],
+    [10, 'Undo Spam (Ctrl+Z)',   'Spam Ctrl+Z',                   'z',     'LCtrl', 'combo', 5, 100, 0,    'custom'],
+  ].forEach(row => seedKey.run(...row))
 
-  // Seed presets
-  const seedPreset = db.prepare(`INSERT OR IGNORE INTO ahk_presets (id,name,group_id,description,is_active) VALUES (?,?,?,?,?)`)
-  seedPreset.run(1, 'Default FPS (Valorant)', 1, 'Setting untuk game FPS Valorant', 1)
-  seedPreset.run(2, 'Default Racing (BeamNG)',4, 'Setting untuk BeamNG.drive', 0)
-
-  seedCustomKey.run(1, 'Buang Senjata (G)',     'Tekan G — buang item/senjata', 'g',     '',      'tap',  3,   300,  0,    'fps')
-  seedCustomKey.run(2, 'Reload (R)',             'Tekan R — reload senjata',     'r',     '',      'tap',  5,   200,  0,    'fps')
-  seedCustomKey.run(3, 'Jump (Space)',           'Loncat',                        'Space', '',      'tap',  1,   0,    0,    'action')
-  seedCustomKey.run(4, 'Crouch Hold (Ctrl)',     'Jongkok paksa 3 detik',        'LCtrl', '',      'hold', 1,   0,    3000, 'fps')
-  seedCustomKey.run(5, 'Use/Interact (E)',       'Gunakan / interaksi',          'e',     '',      'tap',  3,   500,  0,    'action')
-  seedCustomKey.run(6, 'Inventory (Tab)',        'Buka inventory',               'Tab',   '',      'tap',  1,   0,    0,    'survival')
-  seedCustomKey.run(7, 'Map (M)',               'Buka peta',                    'm',     '',      'tap',  1,   0,    0,    'action')
-  seedCustomKey.run(8, 'Prone (Z)',              'Tengkurap',                    'z',     '',      'tap',  1,   0,    0,    'fps')
-  seedCustomKey.run(9, 'Melee (V)',              'Serang melee',                 'v',     '',      'tap',  3,   300,  0,    'fps')
-  seedCustomKey.run(10,'Undo Spam (Ctrl+Z)',     'Spam Ctrl+Z',                  'z',     'LCtrl', 'combo',5,  100,  0,    'custom')
-
-  seedConfig.run('overlay_theme',              'dark')
-  seedConfig.run('overlay_position',           'bottom-right')
-  seedConfig.run('min_donation_amount',        '1000')
-  seedConfig.run('queue_mode',                 'sequential')
-  seedConfig.run('notification_duration_ms',   '5000')
-
-  // ── Overlay: Notifikasi ──────────────────────────────
-  seedConfig.run('notif_position',     'bottom-right')
-  seedConfig.run('notif_bg',           '#0d0f14')
-  seedConfig.run('notif_bg_opacity',   '0.92')
-  seedConfig.run('notif_border',       '#7c3aed')
-  seedConfig.run('notif_text',         '#ffffff')
-  seedConfig.run('notif_amount_color', '#86efac')
-  seedConfig.run('notif_effect_color', '#fbbf24')
-
-  // ── Overlay: Price List ──────────────────────────────
-  seedConfig.run('pricelist_show',          'true')
-  seedConfig.run('pricelist_position',      'top-right')
-  seedConfig.run('pricelist_title',         'Viewer Merusuh')
-  seedConfig.run('pricelist_subtitle',      'List Harga Merusuh')
-  seedConfig.run('pricelist_title_color',   '#ffffff')
-  seedConfig.run('pricelist_badge_bg',      '#000000')
-  seedConfig.run('pricelist_badge_text',    '#ffffff')
-  seedConfig.run('pricelist_label_bg',      '#1e2330')
-  seedConfig.run('pricelist_label_text',    '#ffffff')
-  seedConfig.run('pricelist_items_per_page','5')
-  seedConfig.run('pricelist_rotate_sec',    '10')
-  seedConfig.run('pricelist_hide_after_min','5')
-  seedConfig.run('pricelist_nav_color',     '#7c3aed')
+  // ── SEED: Config ──────────────────────────────────────────────────
+  const seedConfig = db.prepare(`INSERT OR IGNORE INTO config (key, value) VALUES (?, ?)`)
+  ;[
+    ['overlay_theme',              'dark'],
+    ['overlay_position',           'bottom-right'],
+    ['min_donation_amount',        '1000'],
+    ['queue_mode',                 'sequential'],
+    ['notification_duration_ms',   '5000'],
+    ['notif_position',             'bottom-right'],
+    ['notif_bg',                   '#0d0f14'],
+    ['notif_bg_opacity',           '0.92'],
+    ['notif_border',               '#7c3aed'],
+    ['notif_text',                 '#ffffff'],
+    ['notif_amount_color',         '#86efac'],
+    ['notif_effect_color',         '#fbbf24'],
+    ['pricelist_show',             'true'],
+    ['pricelist_position',         'top-right'],
+    ['pricelist_title',            'Viewer Merusuh'],
+    ['pricelist_subtitle',         'List Harga Merusuh'],
+    ['pricelist_title_color',      '#ffffff'],
+    ['pricelist_badge_bg',         '#000000'],
+    ['pricelist_badge_text',       '#ffffff'],
+    ['pricelist_label_bg',         '#1e2330'],
+    ['pricelist_label_text',       '#ffffff'],
+    ['pricelist_items_per_page',   '5'],
+    ['pricelist_rotate_sec',       '10'],
+    ['pricelist_hide_after_min',   '5'],
+    ['pricelist_nav_color',        '#7c3aed'],
+  ].forEach(([k, v]) => seedConfig.run(k, v))
 
   db.close()
   console.log(`✅ Database siap: ${DB_PATH}`)
