@@ -1,7 +1,7 @@
 # Viewer Merusuh — Dokumentasi Developer
 
-> **Tagline:** Penonton Bayar, Game Kacau.
-> Platform interaktif open-source untuk livestreamer — viewer bisa merusuh saat streaming game via donasi.
+> **Tagline:** Penonton Bayar, Game Kacau. Bahkan RC-nya juga kacau.
+> Platform interaktif open-source untuk livestreamer — viewer bisa merusuh saat streaming game via donasi, dan bahkan mengontrol RC fisik di IRL.
 
 ---
 
@@ -17,12 +17,14 @@
 8. [Adapter Layer](#8-adapter-layer)
 9. [Plugin Native Game](#9-plugin-native-game)
 10. [Electron App](#10-electron-app)
-11. [REST API Reference](#11-rest-api-reference)
-12. [Socket.io Events](#12-socketio-events)
-13. [Config Keys](#13-config-keys)
-14. [Panduan Menambah Fitur](#14-panduan-menambah-fitur)
-15. [Panduan Fix Bug](#15-panduan-fix-bug)
-16. [Roadmap & Ide Pengembangan](#16-roadmap--ide-pengembangan)
+11. [Client Module — PC Gaming Terpisah](#11-client-module--pc-gaming-terpisah)
+12. [RC Module — Kontrol RC via Donasi](#12-rc-module--kontrol-rc-via-donasi)
+13. [REST API Reference](#13-rest-api-reference)
+14. [Socket.io Events](#14-socketio-events)
+15. [Config Keys](#15-config-keys)
+16. [Panduan Menambah Fitur](#16-panduan-menambah-fitur)
+17. [Panduan Fix Bug](#17-panduan-fix-bug)
+18. [Roadmap & Ide Pengembangan](#18-roadmap--ide-pengembangan)
 
 ---
 
@@ -30,7 +32,15 @@
 
 Viewer Merusuh adalah alternatif open-source dari **Crowd Control** yang bebas platform donasi dan bebas platform streaming. Saat viewer mengirim donasi melalui Saweria atau Trakteer, server mendeteksi donasi tersebut, mencocokkan nominalnya dengan efek yang telah dikonfigurasi, lalu mengeksekusi efek di dalam game yang sedang dimainkan streamer secara real-time.
 
-### Alur Utama
+Ekosistem Viewer Merusuh terdiri dari **tiga komponen utama:**
+
+| Komponen | Deskripsi | Status |
+|----------|-----------|--------|
+| **Server / Electron App** | Core engine — menerima donasi, trigger efek game | Aktif (ada bug) |
+| **Client Module** | Agent di PC Gaming terpisah — eksekusi efek AHK/vJoy | Phase 1–2 |
+| **RC Module** | Server kontrol RC fisik — viewer sewa RC via donasi | Phase 1–2 |
+
+### Alur Utama (Core)
 
 ```
 Viewer donasi di Saweria/Trakteer
@@ -49,8 +59,9 @@ Adapter game dieksekusi:
   • ahk.js     → spawn AutoHotkey script
   • vjoy.js    → virtual gamepad via ViGEmBus
   • plugin     → game plugin polling /api/plugin/pending
+  • rc         → (future) trigger RC Module via HTTP/eventBus
     ↓
-Socket.io broadcast ke Dashboard + OBS Overlay
+Socket.io broadcast ke Dashboard + OBS Overlay + Client Agent
     ↓
 Notifikasi muncul di OBS, efek aktif di game
 ```
@@ -69,12 +80,50 @@ Notifikasi muncul di OBS, efek aktif di game
 | Game Controller | ViGEmBus + vigemclient |
 | Game Plugin GTA5 | ScriptHookV .NET (C#) |
 | Game Plugin BeamNG | Lua Extension |
+| RC Hardware | ESP32 + WebSocket firmware |
+| RC Drone | Raspberry Pi + MAVLink / ArduPilot |
+| RC Stream | WebRTC (mediasoup) atau HLS (ffmpeg) |
 
 ---
 
 ## 2. Arsitektur Sistem
 
-### Komponen Utama
+### Gambaran Ekosistem Lengkap
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                         PC STREAM / OBS                             │
+│                                                                     │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                ELECTRON APP (main.js)                        │   │
+│  │  ┌──────────────────────────────────────────────────────┐   │   │
+│  │  │           SERVER (server/index.js) — Port 3000        │   │   │
+│  │  │  Express + Socket.io                                  │   │   │
+│  │  │  effectEngine → eventBus → adapters                  │   │   │
+│  │  └──────────────────────────────────────────────────────┘   │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                     │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │  OBS Browser Source — http://localhost:3000/overlay           │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└─────────┬─────────────────────────────────────────────────────────┘
+          │ LAN / Internet (Socket.io)        │ HTTP / eventBus (Phase 6)
+          ▼                                   ▼
+┌─────────────────────┐            ┌──────────────────────────────────┐
+│     PC GAMING        │            │  RC MODULE SERVER — Port 3001    │
+│                     │            │  rc-module/api/server.js         │
+│  CLIENT MODULE      │            │  sessionManager, queueManager    │
+│  client/src/index.js│            │  adapter (ESP32 / simulator)     │
+│  • AHK adapter      │            └──────────────┬───────────────────┘
+│  • vJoy adapter     │                           │ WebSocket / WiFi
+│  • Plugin proxy     │            ┌──────────────▼───────────────────┐
+└─────────────────────┘            │         HARDWARE LAYER           │
+                                   │  ESP32 RC + FPV Camera           │
+                                   │  Raspberry Pi Drone              │
+                                   └──────────────────────────────────┘
+```
+
+### Komponen Utama (Core Server)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -109,13 +158,13 @@ Notifikasi muncul di OBS, efek aktif di game
 │  • Emit effect event │  │  • config_updated → overlay     │
 └──────────┬──────────┘  │  • preset_changed → dashboard   │
            │              └─────────────────────────────────┘
-┌──────────▼──────────────────────────────────────────┐
-│              ADAPTER LAYER                           │
-│  ┌──────────┐  ┌──────────┐  ┌────────────────────┐ │
-│  │  ahk.js  │  │ vjoy.js  │  │  plugin.js (queue) │ │
-│  │ AHK v2   │  │ ViGEmBus │  │  ← polling by game │ │
-│  └──────────┘  └──────────┘  └────────────────────┘ │
-└─────────────────────────────────────────────────────┘
+┌──────────▼──────────────────────────────────────────────────┐
+│              ADAPTER LAYER                                   │
+│  ┌──────────┐  ┌──────────┐  ┌────────────────────────────┐ │
+│  │  ahk.js  │  │ vjoy.js  │  │  plugin.js (queue)         │ │
+│  │ AHK v2   │  │ ViGEmBus │  │  ← polling by game plugin  │ │
+│  └──────────┘  └──────────┘  └────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ### Event Bus
@@ -135,105 +184,158 @@ Notifikasi muncul di OBS, efek aktif di game
 ## 3. Struktur Folder
 
 ```
-viewer-merusuh/
+viewer-merusuh/                      # Root monorepo
 │
-├── electron/                    # Electron desktop app
-│   ├── main.js                  # Main process — server + window + tray
-│   ├── preload.js               # Context bridge (IPC)
-│   ├── loading.html             # Splash screen saat booting
+├── electron/                        # Electron desktop app
+│   ├── main.js                      # Main process — server + window + tray
+│   ├── preload.js                   # Context bridge (IPC)
+│   ├── loading.html                 # Splash screen saat booting
 │   └── assets/
-│       ├── icon.png             # App icon 1024x1024
-│       ├── icon.ico             # App icon Windows (multi-size)
-│       └── tray-icon.png        # Tray icon 32x32
+│       ├── icon.png                 # App icon 1024x1024
+│       ├── icon.ico                 # App icon Windows (multi-size)
+│       └── tray-icon.png            # Tray icon 32x32
 │
-├── server/                      # Backend Node.js
-│   ├── index.js                 # Entry point Express + Socket.io
+├── server/                          # Backend Node.js — core server
+│   ├── index.js                     # Entry point Express + Socket.io
 │   ├── core/
-│   │   ├── effectEngine.js      # Queue efek, matching donasi → efek
-│   │   └── eventBus.js          # EventEmitter singleton
+│   │   ├── effectEngine.js          # Queue efek, matching donasi → efek
+│   │   └── eventBus.js              # EventEmitter singleton
 │   ├── adapters/
-│   │   ├── saweria.js           # Webhook handler Saweria
-│   │   ├── trakteer.js          # Webhook handler Trakteer
-│   │   ├── ahk.js               # AutoHotkey adapter
-│   │   └── vjoy.js              # ViGEm virtual gamepad adapter
+│   │   ├── saweria.js               # Webhook handler Saweria
+│   │   ├── trakteer.js              # Webhook handler Trakteer
+│   │   ├── ahk.js                   # AutoHotkey adapter
+│   │   └── vjoy.js                  # ViGEm virtual gamepad adapter
 │   ├── db/
-│   │   ├── database.js          # SQLite singleton getDB()
-│   │   └── setup.js             # Init schema + seed data
+│   │   ├── database.js              # SQLite singleton getDB()
+│   │   └── setup.js                 # Init schema + seed data
 │   └── routes/
-│       ├── api.js               # REST API utama (effects, logs, config, ahk)
-│       ├── plugin.js            # Plugin game polling endpoint
-│       ├── env.js               # .env editor dari dashboard
-│       └── testing.js           # Testing area endpoint
+│       ├── api.js                   # REST API utama (effects, logs, config, ahk)
+│       ├── plugin.js                # Plugin game polling endpoint
+│       ├── env.js                   # .env editor dari dashboard
+│       └── testing.js               # Testing area endpoint
 │
-├── dashboard/                   # Frontend React (Vite)
+├── dashboard/                       # Frontend React (Vite)
 │   ├── src/
-│   │   ├── main.jsx             # Entry point React
-│   │   ├── App.jsx              # Root: routing + socket + toast
-│   │   ├── index.css            # Design system (CSS vars, utility classes)
+│   │   ├── main.jsx                 # Entry point React
+│   │   ├── App.jsx                  # Root: routing + socket + toast
+│   │   ├── index.css                # Design system (CSS vars, utility classes)
 │   │   ├── hooks/
-│   │   │   ├── useSocket.js     # Socket.io client hook
-│   │   │   └── useToast.js      # Toast notification state
+│   │   │   ├── useSocket.js         # Socket.io client hook
+│   │   │   └── useToast.js          # Toast notification state
 │   │   ├── utils/
-│   │   │   └── api.js           # Semua fungsi fetch ke server
+│   │   │   └── api.js               # Semua fungsi fetch ke server
 │   │   ├── components/
-│   │   │   ├── Sidebar.jsx      # Navigasi sidebar dengan logo
-│   │   │   ├── SetupWizard.jsx  # Wizard 7 langkah first-time setup
+│   │   │   ├── Sidebar.jsx          # Navigasi sidebar dengan logo
+│   │   │   ├── SetupWizard.jsx      # Wizard 7 langkah first-time setup
 │   │   │   └── ToastContainer.jsx
 │   │   └── pages/
-│   │       ├── DashboardPage.jsx  # Stat cards + live feed + test panel
-│   │       ├── EffectsPage.jsx    # CRUD efek dengan modal form
-│   │       ├── TestingPage.jsx    # Simulasi donasi + direct trigger
-│   │       ├── OverlayPage.jsx    # Overlay editor + live preview
-│   │       ├── LogsPage.jsx       # Log donasi masuk
-│   │       ├── AhkPage.jsx        # AHK: game groups, presets, custom keys
-│   │       ├── VjoyPage.jsx       # Status ViGEm + test actions
-│   │       ├── SecretsPage.jsx    # .env editor UI
-│   │       └── ConfigPage.jsx     # General config (overlay, queue, dll)
+│   │       ├── DashboardPage.jsx    # Stat cards + live feed + test panel
+│   │       ├── EffectsPage.jsx      # CRUD efek dengan modal form
+│   │       ├── TestingPage.jsx      # Simulasi donasi + direct trigger
+│   │       ├── OverlayPage.jsx      # Overlay editor + live preview
+│   │       ├── LogsPage.jsx         # Log donasi masuk
+│   │       ├── AhkPage.jsx          # AHK: game groups, presets, custom keys
+│   │       ├── VjoyPage.jsx         # Status ViGEm + test actions
+│   │       ├── SecretsPage.jsx      # .env editor UI
+│   │       └── ConfigPage.jsx       # General config (overlay, queue, dll)
 │   └── vite.config.js
 │
 ├── overlay/
-│   └── index.html               # OBS Browser Source overlay (standalone HTML)
+│   └── index.html                   # OBS Browser Source overlay (standalone HTML)
 │
 ├── adapters/
 │   └── ahk/
 │       ├── lib/
-│       │   ├── VM_Lib.ahk         # Shared library (helper functions)
-│       │   ├── generic_key.ahk    # Script universal 1 tombol
-│       │   ├── generic_combo.ahk  # Script universal kombinasi tombol
+│       │   ├── VM_Lib.ahk           # Shared library (helper functions)
+│       │   ├── generic_key.ahk      # Script universal 1 tombol
+│       │   ├── generic_combo.ahk    # Script universal kombinasi tombol
 │       │   └── global/
 │       │       └── volume_mute.ahk
 │       └── games/
-│           ├── racing/            # brake_force, handbrake, full_throttle, flip_car, slow_motion
-│           ├── action/            # horn_spam, explosion_rain, wanted_level_up, ragdoll, super_jump, chaos_mode
-│           ├── fps/               # no_ammo, invert_mouse, random_weapon
-│           └── survival/          # drop_item, camera_shake
+│           ├── racing/              # brake_force, handbrake, full_throttle, flip_car, slow_motion
+│           ├── action/              # horn_spam, explosion_rain, wanted_level_up, ragdoll, super_jump, chaos_mode
+│           ├── fps/                 # no_ammo, invert_mouse, random_weapon
+│           └── survival/            # drop_item, camera_shake
 │
 ├── plugins/
 │   ├── gta5/
-│   │   └── ViewerMerusuh.cs     # ScriptHookV .NET plugin (C#)
+│   │   └── ViewerMerusuh.cs         # ScriptHookV .NET plugin (C#)
 │   └── beamng/
 │       └── viewermerusuh/
-│           └── main.lua         # BeamNG Lua extension
+│           └── main.lua             # BeamNG Lua extension
+│
+├── client/                          # ← CLIENT MODULE (terpisah, lihat Bab 11)
+│   ├── src/
+│   │   ├── index.js                 # Entry point — connect ke server
+│   │   ├── core/
+│   │   │   ├── connection.js        # Socket.IO ke server + auto-reconnect
+│   │   │   └── adapterManager.js    # Router efek ke adapter
+│   │   ├── adapters/
+│   │   │   ├── ahk.js               # AHK adapter (Step 1 ✅)
+│   │   │   ├── vjoy.js              # vJoy adapter (Step 3 🔜)
+│   │   │   └── plugin.js            # Plugin proxy (Step 4 🔜)
+│   │   └── utils/
+│   │       ├── logger.js
+│   │       └── config.js
+│   ├── adapters/
+│   │   └── ahk/                     # Salin dari root adapters/ahk/
+│   ├── .env.example
+│   └── package.json
+│
+├── rc-module/                       # ← RC MODULE (terpisah, lihat Bab 12)
+│   ├── api/
+│   │   ├── server.js                # Entry point — Port 3001
+│   │   ├── routes/
+│   │   │   ├── rc.js                # CRUD fleet RC
+│   │   │   ├── session.js           # Manajemen sesi sewa
+│   │   │   └── queue.js             # Antrian viewer
+│   │   └── db/
+│   │       ├── database.js
+│   │       └── setup.js
+│   ├── core/
+│   │   ├── sessionManager.js        # Assign, timer, release RC
+│   │   ├── queueManager.js          # Antrian viewer
+│   │   ├── fleetManager.js          # Manajemen armada RC
+│   │   └── eventBridge.js           # Jembatan ke Viewer Merusuh
+│   ├── adapters/
+│   │   ├── rc/
+│   │   │   ├── rc-esp32.js          # Adapter RC ESP32
+│   │   │   ├── rc-raspi.js          # Adapter RC Raspberry Pi
+│   │   │   └── rc-simulator.js      # Simulator dev
+│   │   └── drone/
+│   │       ├── drone-mavlink.js
+│   │       └── drone-simulator.js
+│   ├── hardware/
+│   │   ├── esp32/
+│   │   │   ├── firmware.ino
+│   │   │   └── WIRING_GUIDE.md
+│   │   └── raspi/
+│   │       └── setup.sh
+│   ├── web-client/
+│   │   ├── controller.html          # Web controller untuk viewer
+│   │   └── admin.html               # Dashboard admin fleet
+│   └── simulator/
+│       └── rc-sim.js
 │
 ├── installer/
-│   ├── SETUP.bat                # First-time setup Windows
-│   ├── START.bat                # Jalankan server
-│   ├── STOP.bat                 # Matikan server
-│   ├── UPDATE.bat               # Update dari GitHub
-│   ├── README_INSTALL.txt       # Instruksi user
-│   ├── setup.js                 # Setup script Node.js
-│   ├── postinstall.js           # Auto-run setelah npm install
-│   └── make-release.js          # Build ZIP release
+│   ├── SETUP.bat
+│   ├── START.bat
+│   ├── STOP.bat
+│   ├── UPDATE.bat
+│   ├── README_INSTALL.txt
+│   ├── setup.js
+│   ├── postinstall.js
+│   └── make-release.js
 │
 ├── docs/
-│   ├── ADDING_GAMES.md          # Panduan tambah game baru (AHK)
-│   ├── VJOY_GUIDE.md            # Panduan vJoy/ViGEm
-│   └── BUILD_ELECTRON.md        # Panduan build .exe
+│   ├── ADDING_GAMES.md
+│   ├── VJOY_GUIDE.md
+│   └── BUILD_ELECTRON.md
 │
-├── electron-builder.config.js   # Konfigurasi electron-builder
-├── build-electron.js            # Script build .exe
-├── package.json                 # Root package.json
-└── .env.example                 # Template konfigurasi
+├── electron-builder.config.js
+├── build-electron.js
+├── package.json
+└── .env.example
 ```
 
 ---
@@ -289,11 +391,9 @@ Key-value store untuk semua konfigurasi app.
 | value | TEXT | Nilai config |
 | updated_at | TEXT | Timestamp |
 
-Lihat [Config Keys](#13-config-keys) untuk daftar lengkap.
+Lihat [Config Keys](#15-config-keys) untuk daftar lengkap.
 
 ### Tabel `ahk_game_groups`
-
-Daftar game yang dikategorikan.
 
 | Kolom | Tipe | Keterangan |
 |-------|------|-----------|
@@ -306,8 +406,6 @@ Daftar game yang dikategorikan.
 
 ### Tabel `ahk_presets`
 
-Setting bernama yang bisa diaktifkan per sesi streaming.
-
 | Kolom | Tipe | Keterangan |
 |-------|------|-----------|
 | id | INTEGER PK | |
@@ -318,8 +416,6 @@ Setting bernama yang bisa diaktifkan per sesi streaming.
 | created_at | TEXT | |
 
 ### Tabel `ahk_custom_keys`
-
-Tombol keyboard custom yang bisa dipilih sebagai action_key di efek.
 
 | Kolom | Tipe | Keterangan |
 |-------|------|-----------|
@@ -619,9 +715,434 @@ Urutan:
 
 ---
 
-## 11. REST API Reference
+## 11. Client Module — PC Gaming Terpisah
 
-Base URL: `http://localhost:{PORT}`
+> **Lokasi:** `client/`
+> **Status:** Step 1 ✅ — koneksi Socket.IO + AHK adapter dasar
+
+### Masalah yang Dipecahkan
+
+Banyak streamer menggunakan setup **2 PC**: PC Stream/OBS menjalankan server Viewer Merusuh, sementara PC Gaming yang menjalankan game perlu AutoHotkey / vJoy untuk efek chaos. Client Module adalah **agent Node.js** yang berjalan di PC Gaming dan menerima perintah efek dari server via Socket.IO.
+
+### Arsitektur Client
+
+```
+Server (PC Stream) — emit event 'effect' via Socket.IO
+    ↓
+client/src/core/connection.js — menerima event
+    ↓
+client/src/core/adapterManager.js — routing berdasarkan payload.adapter
+    ↓
+  adapter: 'ahk'  → client/src/adapters/ahk.js → spawn AHK script
+  adapter: 'vjoy' → client/src/adapters/vjoy.js → ViGEmBus
+  adapter: 'plugin' → client/src/adapters/plugin.js → HTTP proxy lokal
+    ↓
+Efek berjalan di game di PC Gaming
+```
+
+### Cara Kerja Internal
+
+**`connection.js`**
+
+Mengelola koneksi Socket.IO ke server:
+- **Auto-reconnect** — exponential backoff (1s → max 30s)
+- **Auth payload** — kirim `clientSecret` dan `clientName` saat handshake
+- Forward event `effect` ke adapterManager
+
+```javascript
+// Event yang didengarkan:
+socket.on('connect', ...)
+socket.on('disconnect', ...)
+socket.on('effect', payload => adapterManager.execute(payload))
+socket.on('auth_error', ...)
+```
+
+**`adapterManager.js`**
+
+Router yang mendaftarkan adapter dan meneruskan efek berdasarkan `payload.adapter`:
+
+```javascript
+manager.register('ahk', ahkAdapter);
+manager.register('vjoy', vjoyAdapter);
+manager.execute({ adapter: 'ahk', action: 'brake_force', params: {} });
+```
+
+### Payload Efek (dari server)
+
+```json
+{
+  "id": 42,
+  "name": "Rem Mendadak",
+  "adapter": "ahk",
+  "action": "brake_force",
+  "params": {},
+  "duration_ms": 3000,
+  "donation": {
+    "amount": 5000,
+    "username": "penonton123",
+    "message": "gasss rusuh"
+  }
+}
+```
+
+### Konfigurasi Client (`.env`)
+
+```env
+# IP dan port PC Server (PC OBS)
+# LAN    : http://192.168.1.10:3000
+# Internet: https://xxx.ngrok-free.app
+SERVER_URL=http://192.168.1.10:3000
+
+# Secret yang sama dengan CLIENT_SECRET di .env server
+CLIENT_SECRET=rahasia_yang_panjang_dan_unik
+
+# Nama client (muncul di log server)
+CLIENT_NAME=GamePC
+
+# Aktifkan adapter sesuai kebutuhan
+ADAPTER_AHK=true
+ADAPTER_VJOY=false
+ADAPTER_PLUGIN=false
+
+# Path AutoHotkey v2
+AHK_EXE_PATH=C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe
+```
+
+### Menambah Auth di Server untuk Client
+
+Di `server/index.js`, tambahkan middleware Socket.IO:
+
+```javascript
+io.use((socket, next) => {
+  const { secret, role } = socket.handshake.auth;
+  if (role === 'game-client') {
+    if (secret !== process.env.CLIENT_SECRET) {
+      return next(new Error('auth_error'));
+    }
+    socket.clientName = socket.handshake.auth.clientName || 'unknown';
+    console.log(`[Client] Game client terhubung: ${socket.clientName}`);
+  }
+  next();
+});
+```
+
+Di `.env` server, tambahkan:
+```env
+CLIENT_SECRET=rahasia_yang_panjang_dan_unik
+```
+
+### Adapter Reference
+
+**AHK Adapter (`adapter: "ahk"`)**
+
+Resolusi path script AHK:
+| Action | Path yang dicari |
+|--------|-----------------|
+| `brake_force` | `adapters/ahk/games/racing/brake_force.ahk` |
+| `horn_spam` | `adapters/ahk/games/action/horn_spam.ahk` |
+| `custom_key_1` | `adapters/ahk/lib/generic_key.ahk` (fallback) |
+
+> **Tips:** Salin folder `adapters/ahk/` dari PC Server ke PC Client agar semua script sama.
+
+**vJoy Adapter (`adapter: "vjoy"`)** — *Step 3 🔜*
+
+Dependency: `npm install vigemclient`
+
+**Plugin Proxy Adapter (`adapter: "plugin"`)** — *Step 4 🔜*
+
+Membuka HTTP server lokal di `PLUGIN_LOCAL_PORT` (default: 3001) sehingga game plugin bisa polling efek langsung dari PC Gaming tanpa melalui jaringan ke PC Server.
+
+### Roadmap Client
+
+| Step | Fitur | Status |
+|------|-------|--------|
+| Step 1 | Scaffold, koneksi Socket.IO, AHK adapter dasar | ✅ Done |
+| Step 2 | AHK adapter lengkap + sinkronisasi folder script dari server | 🔜 |
+| Step 3 | vJoy / ViGEmBus adapter | 🔜 |
+| Step 4 | Plugin adapter (HTTP proxy lokal untuk GTA5/BeamNG polling) | 🔜 |
+| Step 5 | Config UI web lokal + auto-discovery server di LAN | 🔜 |
+
+### Menjalankan Client
+
+```bash
+cd client
+npm install
+npm run setup   # buat .env dari template
+# Edit .env: isi SERVER_URL dan CLIENT_SECRET
+npm start
+```
+
+### Troubleshooting Client
+
+| Masalah | Solusi |
+|---------|--------|
+| Tidak bisa konek ke server | Pastikan `SERVER_URL` pakai IP, bukan `localhost`. Cek firewall PC Server: `netsh advfirewall firewall add rule name="VM" dir=in action=allow protocol=TCP localport=3000` |
+| AHK tidak jalan, tidak ada error | Verifikasi `AHK_EXE_PATH` ke AutoHotkey64.exe v2. Set `LOG_LEVEL=debug` untuk lihat path script yang dicoba |
+| `CLIENT_SECRET` berbeda | Generate ulang: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` — salin ke `.env` server **dan** client |
+
+---
+
+## 12. RC Module — Kontrol RC via Donasi
+
+> **Lokasi:** `rc-module/`
+> **Status:** Phase 1–2 — Fondasi & Simulator (tanpa hardware nyata)
+> **Port:** 3001 (terpisah dari server utama di 3000)
+
+### Konsep
+
+RC Module memungkinkan viewer menyewa dan mengontrol RC / drone secara real-time via donasi. Konsep terinspirasi dari streamer China di Douyin/Taobao Live yang menyewakan RC berkamera kepada viewer. Ini menambah dimensi **IRL chaos** di atas chaos game yang sudah ada.
+
+### Alur Sewa RC
+
+```
+Viewer donasi Rp X (via Saweria/Trakteer)
+    ↓
+Viewer Merusuh Server terima webhook → emit 'donation'
+    ↓
+RC Module cek: nominal memenuhi minimum sewa RC?
+    ↓ Ya
+Cek fleet: ada RC available?
+  ├── Ada  → assign RC ke viewer, mulai timer countdown
+  └── Tidak → masukkan ke queue, notify viewer
+    ↓
+Viewer dapat link controller: http://localhost:3001/controller?token=XXX
+    ↓
+Viewer kontrol RC via browser (WASD / on-screen joystick)
+    ↓
+Perintah kontrol → server → adapter → ESP32 via WebSocket / WiFi
+    ↓
+Kamera RC (FPV) distream ke browser viewer (Phase 4)
+    ↓
+Timer habis → kontrol dicabut → RC status = Available → queue diproses
+```
+
+### Arsitektur RC Module
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                 VIEWER MERUSUH SERVER (port 3000)            │
+│  eventBus.emit('donation', data)                             │
+└─────────────────┬───────────────────────────────────────────┘
+                  │ Opsi A: eventBus shared
+                  │ Opsi B: HTTP POST ke /webhook/donation
+┌─────────────────▼───────────────────────────────────────────┐
+│                RC MODULE SERVER (port 3001)                  │
+│  rc-module/api/server.js — Express + Socket.IO               │
+│                                                              │
+│  Routes:                                                     │
+│  • /api/rc/*          → REST API fleet RC                    │
+│  • /api/session/*     → Manajemen sesi sewa                  │
+│  • /api/queue/*       → Antrian viewer                       │
+│  • /webhook/donation  → Terima event dari Viewer Merusuh     │
+│  • /controller        → Web controller untuk viewer          │
+│  • /admin             → Dashboard admin RC                   │
+└──────────┬──────────────────────┬────────────────────────────┘
+           │                      │
+┌──────────▼──────────┐  ┌────────▼────────────────────────┐
+│   SESSION MANAGER   │  │      SOCKET.IO EVENTS            │
+│  core/sessionMgr.js │  │  • rc_status → semua client      │
+│  • Assign RC        │  │  • control_cmd → hardware        │
+│  • Timer countdown  │  │  • session_start → viewer        │
+│  • Release RC       │  │  • session_end → viewer          │
+│  • Queue management │  │  • queue_update → semua          │
+└──────────┬──────────┘  └─────────────────────────────────┘
+           │
+┌──────────▼──────────────────────────────────────────────────┐
+│                   ADAPTER LAYER                              │
+│  ┌─────────────────┐   ┌─────────────────┐                  │
+│  │  rc-esp32.js    │   │  rc-simulator.js│                  │
+│  │  (WiFi WS/UDP)  │   │  (dev only)     │                  │
+│  └────────┬────────┘   └─────────────────┘                  │
+│           │                                                  │
+│  ┌────────▼────────┐                                        │
+│  │  drone-mavlink  │                                        │
+│  │  (Phase 4)      │                                        │
+│  └─────────────────┘                                        │
+└─────────────────────────────────────────────────────────────┘
+           │
+┌──────────▼──────────────────────────────────────────────────┐
+│                 HARDWARE LAYER                               │
+│  ┌───────────────┐   ┌───────────────┐                      │
+│  │   ESP32 RC    │   │  Drone (FPV)  │                      │
+│  │  + FPV cam   │   │  + MAVLink    │                      │
+│  └───────────────┘   └───────────────┘                      │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Integrasi dengan Viewer Merusuh
+
+**Opsi A — eventBus Shared (Rekomendasi untuk setup 1 PC)**
+
+RC Module berjalan dalam proses yang sama dengan Viewer Merusuh:
+
+```javascript
+// Di server/index.js Viewer Merusuh — tambahkan:
+const rcModule = require('../rc-module/api/server');
+rcModule.init({ eventBus, db, io });
+
+// Di rc-module/api/server.js:
+module.exports = {
+  init({ eventBus, db, io }) {
+    eventBus.on('donation', (data) => {
+      sessionManager.handleDonation(data);
+    });
+  }
+};
+```
+
+**Opsi B — HTTP POST (Loosely Coupled, untuk setup terpisah)**
+
+RC Module berjalan sebagai server terpisah (port 3001):
+
+```javascript
+// Di server/adapters/saweria.js Viewer Merusuh:
+await fetch('http://localhost:3001/webhook/donation', {
+  method: 'POST',
+  body: JSON.stringify(donationData)
+});
+```
+
+**Opsi C — Standalone (Tanpa Viewer Merusuh)**
+
+RC Module berdiri sendiri sebagai website sewa RC independen, lengkap dengan payment gateway sendiri.
+
+### Database RC Module
+
+RC Module menggunakan SQLite sendiri (terpisah dari DB Viewer Merusuh utama) di `rc-module/api/db/`.
+
+#### Tabel `rc_units`
+
+| Kolom | Tipe | Keterangan |
+|-------|------|-----------|
+| id | INTEGER PK | |
+| name | TEXT | Nama RC: "RC Merah", "Drone 1" |
+| type | TEXT | `rc_car`, `drone` |
+| adapter | TEXT | `esp32`, `raspi`, `simulator` |
+| ip_address | TEXT NULL | IP ESP32 jika via WiFi |
+| status | TEXT | `available`, `in_use`, `offline`, `maintenance` |
+| created_at | TEXT | |
+
+#### Tabel `rc_sessions`
+
+| Kolom | Tipe | Keterangan |
+|-------|------|-----------|
+| id | INTEGER PK | |
+| rc_id | INTEGER | FK ke rc_units.id |
+| viewer_name | TEXT | Nama viewer/donatur |
+| viewer_token | TEXT | Token unik untuk akses controller |
+| donation_amount | INTEGER | Nominal donasi yang memicu sewa |
+| duration_ms | INTEGER | Durasi sewa dalam ms |
+| started_at | TEXT | Waktu mulai |
+| ends_at | TEXT | Waktu berakhir |
+| status | TEXT | `active`, `ended`, `expired` |
+
+#### Tabel `rc_queue`
+
+| Kolom | Tipe | Keterangan |
+|-------|------|-----------|
+| id | INTEGER PK | |
+| rc_id | INTEGER NULL | RC yang direquest (NULL = any) |
+| viewer_name | TEXT | |
+| donation_amount | INTEGER | |
+| queued_at | TEXT | |
+| status | TEXT | `waiting`, `assigned`, `expired` |
+
+### Hardware yang Didukung
+
+**RC Darat**
+
+| Hardware | Protokol | Status |
+|----------|----------|--------|
+| ESP32 + L298N motor driver | WebSocket (WiFi) | 🔄 Phase 3 |
+| Raspberry Pi + motor HAT | SSH / GPIO | ⏳ Phase 3 |
+| RC komersial (dengan modifikasi) | UART/PWM | ⏳ Future |
+
+**Drone**
+
+| Hardware | Protokol | Status |
+|----------|----------|--------|
+| Drone DIY + Raspberry Pi | MAVLink / UDP | ⏳ Phase 4 |
+| DJI Tello | SDK HTTP | ⏳ Future |
+
+**Kamera FPV**
+
+| Hardware | Metode Stream | Status |
+|----------|--------------|--------|
+| ESP32-CAM | MJPEG over HTTP | ⏳ Phase 4 |
+| USB Webcam | WebRTC via mediasoup | ⏳ Phase 4 |
+| IP Camera | HLS/RTSP via ffmpeg | ⏳ Phase 4 |
+
+### Roadmap RC Module
+
+```
+Phase 1 ✅  Fondasi & Dokumentasi
+Phase 2 🔄  Simulator (tanpa hardware nyata)
+Phase 3 ⏳  Hardware Integration (ESP32)
+Phase 4 ⏳  Kamera Streaming (FPV)
+Phase 5 ⏳  Multi-RC & Queue System
+Phase 6 ⏳  Integrasi penuh ke Viewer Merusuh
+```
+
+**Phase 2 (Sekarang):**
+- Web controller UI (WASD + on-screen joystick)
+- Simulasi RC di browser (kotak bergerak)
+- Session timer real-time
+- Queue list viewer
+
+**Phase 3 (Hardware ESP32):**
+- Firmware ESP32 (menerima perintah via WebSocket)
+- Adapter `rc-esp32.js` di server
+- Test kontrol RC nyata via browser
+
+**Phase 4 (Kamera FPV):**
+- Stream kamera RC ke browser (WebRTC / HLS)
+- Overlay kamera di web controller
+- Integrasi ke OBS sebagai scene
+
+### Menjalankan RC Module (Simulator)
+
+```bash
+cd rc-module
+npm install
+npm run simulator
+
+# Web controller: http://localhost:3001/controller
+# Admin dashboard: http://localhost:3001/admin
+```
+
+### Socket.IO Events RC Module
+
+| Event | Arah | Payload | Keterangan |
+|-------|------|---------|-----------|
+| `rc_status` | Server → All | `{ rc_id, status }` | Status RC berubah |
+| `control_cmd` | Viewer → Server | `{ token, cmd, value }` | Perintah kontrol |
+| `session_start` | Server → Viewer | `{ token, rc_id, duration_ms }` | Sesi dimulai |
+| `session_end` | Server → Viewer | `{ token, reason }` | Sesi berakhir |
+| `session_timer` | Server → Viewer | `{ token, remaining_ms }` | Update countdown |
+| `queue_update` | Server → All | `{ position, total }` | Posisi antrian berubah |
+
+### REST API RC Module
+
+Base URL: `http://localhost:3001`
+
+| Method | Endpoint | Deskripsi |
+|--------|----------|-----------|
+| GET | `/api/rc` | Daftar semua RC unit + status |
+| POST | `/api/rc` | Tambah RC baru ke fleet |
+| PUT | `/api/rc/:id` | Update RC (nama, IP, status) |
+| DELETE | `/api/rc/:id` | Hapus RC dari fleet |
+| GET | `/api/session/active` | Semua sesi aktif |
+| GET | `/api/session/:token` | Detail sesi berdasarkan token |
+| POST | `/api/session/end/:token` | Force end sesi (admin) |
+| GET | `/api/queue` | Daftar antrian saat ini |
+| DELETE | `/api/queue/:id` | Hapus dari antrian |
+| POST | `/webhook/donation` | Terima event donasi dari Viewer Merusuh |
+
+---
+
+## 13. REST API Reference
+
+Base URL: `http://localhost:{PORT}` (default port 3000, server utama)
 
 ### Effects
 
@@ -654,7 +1175,7 @@ Base URL: `http://localhost:{PORT}`
 | GET | `/api/status` | Health check + statistik |
 | GET | `/api/queue` | Info antrian efek saat ini |
 
-### Actions (untuk dropdown di dashboard)
+### Actions
 
 | Method | Endpoint | Deskripsi |
 |--------|----------|-----------|
@@ -729,7 +1250,7 @@ Base URL: `http://localhost:{PORT}`
 
 ---
 
-## 12. Socket.io Events
+## 14. Socket.io Events
 
 ### Server → Client (broadcast ke semua)
 
@@ -745,9 +1266,11 @@ Base URL: `http://localhost:{PORT}`
 
 Tidak ada event dari client ke server. Semua aksi melalui REST API.
 
+> Lihat juga: **Socket.IO Events RC Module** di [Bab 12](#12-rc-module--kontrol-rc-via-donasi).
+
 ---
 
-## 13. Config Keys
+## 15. Config Keys
 
 Semua disimpan di tabel `config`. Diakses via `GET /api/config` dan diubah via `PUT /api/config`.
 
@@ -792,123 +1315,86 @@ Semua disimpan di tabel `config`. Diakses via `GET /api/config` dan diubah via `
 
 ---
 
-## 14. Panduan Menambah Fitur
+## 16. Panduan Menambah Fitur
 
 ### A. Menambah Platform Donasi Baru
 
-**File yang perlu dibuat/diubah:**
+1. **Buat** `server/adapters/nama_platform.js` — validasi auth, parse payload ke format standar `{ platform, donatorName, amount, message, rawPayload }`, emit ke eventBus.
+2. **Ubah** `server/index.js` — import handler, tambah route `/webhook/nama_platform`.
+3. **Ubah** `server/routes/env.js` — tambah field API key di `ENV_SCHEMA`.
+4. **Ubah** `server/routes/testing.js` — tambah platform ke `GET /api/testing/platforms`.
+5. **Ubah** `dashboard/src/pages/SecretsPage.jsx` — tambah section UI.
+6. **Ubah** `dashboard/src/pages/TestingPage.jsx` — tambah ikon platform ke `PLATFORM_ICONS`.
 
-1. **Buat** `server/adapters/nama_platform.js`
-   - Fungsi: validasi auth (header/signature), parse payload ke format standar `{ platform, donatorName, amount, message, rawPayload }`
-   - Emit ke eventBus: `eventBus.emit('donation', donation)`
+### B. Menambah Script AHK Baru
 
-2. **Ubah** `server/index.js`
-   - Import handler baru
-   - Tambah route: `app.post('/webhook/nama_platform', handlerFunction)`
+1. **Buat** `adapters/ahk/games/{kategori}/{nama_efek}.ahk` — wajib `#Requires AutoHotkey v2.0` dan `#Include "../../lib/VM_Lib.ahk"`, baca durasi via `VM_GetDuration(default_ms)`.
+2. **Ubah** `server/adapters/ahk.js` — tambah entry di `ACTION_REGISTRY`: `'nama_action_key': 'games/kategori/nama_efek.ahk'`.
+3. Tambah efek baru via dashboard UI atau `POST /api/effects`.
 
-3. **Ubah** `server/routes/env.js`
-   - Tambah field baru di `ENV_SCHEMA` untuk API key platform
-
-4. **Ubah** `server/routes/testing.js`
-   - Tambah platform baru ke response `GET /api/testing/platforms`
-
-5. **Ubah** `dashboard/src/pages/SecretsPage.jsx` (opsional)
-   - Tambah section UI untuk platform baru
-
-6. **Ubah** `dashboard/src/pages/TestingPage.jsx`
-   - Tambah ikon platform baru ke `PLATFORM_ICONS`
-
-### B. Menambah Script AHK Baru (Efek Game Preset)
-
-**File yang perlu dibuat/diubah:**
-
-1. **Buat** `adapters/ahk/games/{kategori}/{nama_efek}.ahk`
-   - Wajib: `#Requires AutoHotkey v2.0` dan `#Include "../../lib/VM_Lib.ahk"`
-   - Baca durasi via `VM_GetDuration(default_ms)`
-
-2. **Ubah** `server/adapters/ahk.js`
-   - Tambah entry di `ACTION_REGISTRY`: `'nama_action_key': 'games/kategori/nama_efek.ahk'`
-
-3. Tambah efek baru via dashboard UI atau `POST /api/effects` dengan action_key yang baru didaftarkan.
+> **Untuk Client Module:** Salin juga file `.ahk` yang sama ke folder `client/adapters/ahk/games/`.
 
 ### C. Menambah vJoy Action Baru
 
-**File yang perlu diubah:**
-
-1. **Ubah** `server/adapters/vjoy.js`
-   - Tambah fungsi handler async baru
-   - Tambah entry di `ACTION_REGISTRY`
-
-2. **Ubah** `dashboard/src/pages/VjoyPage.jsx`
-   - Tambah entry di array `ACTIONS` untuk UI test panel
+1. **Ubah** `server/adapters/vjoy.js` — tambah fungsi handler async + entry di `ACTION_REGISTRY`.
+2. **Ubah** `dashboard/src/pages/VjoyPage.jsx` — tambah entry di array `ACTIONS`.
 
 ### D. Menambah Efek ke Plugin GTA 5
 
-**File yang perlu diubah:**
-
-1. **Ubah** `plugins/gta5/ViewerMerusuh.cs`
-   - Tambah `case "gta5_nama_efek":` di switch statement `ExecuteEffect()`
-   - Implementasi menggunakan SHVDN API
-
-2. **Ubah** `server/routes/api.js`
-   - Tambah entry di array `pluginActions` dalam handler `GET /api/actions`
+1. **Ubah** `plugins/gta5/ViewerMerusuh.cs` — tambah `case "gta5_nama_efek":` di `ExecuteEffect()`.
+2. **Ubah** `server/routes/api.js` — tambah entry di array `pluginActions`.
 
 ### E. Menambah Efek ke Plugin BeamNG
 
-**File yang perlu diubah:**
-
-1. **Ubah** `plugins/beamng/viewermerusuh/main.lua`
-   - Tambah handler baru di tabel `effectHandlers`: `effectHandlers["beamng_nama_efek"] = function(effect) ... end`
-
-2. **Ubah** `server/routes/api.js`
-   - Tambah entry di array `pluginActions`
+1. **Ubah** `plugins/beamng/viewermerusuh/main.lua` — tambah `effectHandlers["beamng_nama_efek"] = function(effect) ... end`.
+2. **Ubah** `server/routes/api.js` — tambah entry di `pluginActions`.
 
 ### F. Menambah Halaman Dashboard Baru
 
-**File yang perlu dibuat/diubah:**
-
-1. **Buat** `dashboard/src/pages/NamaPage.jsx`
-   - Export default function, terima props `toast` (dan `lastEffect` jika butuh realtime)
-
-2. **Ubah** `dashboard/src/components/Sidebar.jsx`
-   - Tambah entry di array `NAV`: `{ id: 'nama', icon: '🆕', label: 'Nama Menu' }`
-
-3. **Ubah** `dashboard/src/App.jsx`
-   - Import halaman baru
-   - Tambah ke object `content`: `nama: <NamaPage toast={toast} />`
-
-4. **Ubah** `dashboard/src/utils/api.js`
-   - Tambah fungsi fetch yang diperlukan
+1. **Buat** `dashboard/src/pages/NamaPage.jsx` — export default function, terima props `toast`.
+2. **Ubah** `dashboard/src/components/Sidebar.jsx` — tambah entry di array `NAV`.
+3. **Ubah** `dashboard/src/App.jsx` — import + tambah ke object `content`.
+4. **Ubah** `dashboard/src/utils/api.js` — tambah fungsi fetch yang diperlukan.
 
 ### G. Menambah Config Key Baru
 
-1. **Ubah** `server/db/setup.js` — tambah `seedConfig.run('key_baru', 'default_value')`
-2. **Ubah** `overlay/index.html` — tambah ke objek `CFG` default dan baca dari config response
-3. **Ubah** `dashboard/src/pages/ConfigPage.jsx` atau `OverlayPage.jsx` — tambah UI untuk mengubah config
-4. Jalankan `node server/db/setup.js` untuk menambah ke DB yang sudah ada (INSERT OR IGNORE tidak akan hapus data lama)
+1. **Ubah** `server/db/setup.js` — tambah `seedConfig.run('key_baru', 'default_value')`.
+2. **Ubah** `overlay/index.html` — tambah ke objek `CFG` default.
+3. **Ubah** `dashboard/src/pages/ConfigPage.jsx` atau `OverlayPage.jsx` — tambah UI.
+4. Jalankan `node server/db/setup.js` untuk menambah ke DB yang sudah ada.
 
 ### H. Menambah Kolom Tabel DB
 
-1. **Ubah** `server/db/setup.js` — tambah kolom di `CREATE TABLE IF NOT EXISTS`
-2. **Penting:** Kolom baru hanya otomatis ada di DB baru. Untuk DB yang sudah ada, perlu migration manual:
+1. **Ubah** `server/db/setup.js` — tambah kolom di `CREATE TABLE IF NOT EXISTS`.
+2. **Penting:** Kolom baru hanya otomatis ada di DB baru. Untuk DB yang sudah ada, tambahkan migration:
    ```sql
    ALTER TABLE nama_tabel ADD COLUMN nama_kolom TYPE DEFAULT nilai;
    ```
    Atau tambahkan migration script yang mengecek apakah kolom sudah ada sebelum ALTER.
 
+### I. Menambah RC ke Fleet (RC Module)
+
+1. Jalankan RC Module server: `cd rc-module && npm start`
+2. Buka admin dashboard: `http://localhost:3001/admin`
+3. Tambah RC unit baru: `POST /api/rc` dengan `{ name, type, adapter, ip_address }`
+4. Untuk hardware ESP32: upload firmware dari `rc-module/hardware/esp32/firmware.ino`
+5. Pastikan `ip_address` di record RC sama dengan IP ESP32 di jaringan WiFi
+
+### J. Menambah Jenis Hardware RC Baru
+
+1. **Buat** `rc-module/adapters/rc/rc-nama.js` — implementasi interface: `connect()`, `sendCommand(cmd)`, `disconnect()`
+2. **Ubah** `rc-module/core/fleetManager.js` — daftarkan adapter baru
+3. **Ubah** `rc-module/api/db/setup.js` — tambah nilai baru ke enum `adapter` di tabel `rc_units`
+
 ---
 
-## 15. Panduan Fix Bug
+## 17. Panduan Fix Bug
 
-Saat melaporkan atau memperbaiki bug, sertakan informasi berikut dan file terkait:
-
-### Kategori Bug dan File Terkait
+### Kategori Bug — Core Server
 
 #### Bug: Donasi tidak terdeteksi / webhook tidak masuk
 
-**File terkait:**
-- `server/adapters/saweria.js` atau `server/adapters/trakteer.js`
-- `server/index.js` (route webhook)
+**File terkait:** `server/adapters/saweria.js` atau `server/adapters/trakteer.js`, `server/index.js`
 
 **Yang perlu dicek:**
 - Apakah URL webhook di Saweria/Trakteer sudah benar
@@ -920,10 +1406,7 @@ Saat melaporkan atau memperbaiki bug, sertakan informasi berikut dan file terkai
 
 #### Bug: Efek tidak berjalan setelah donasi terdeteksi
 
-**File terkait:**
-- `server/core/effectEngine.js` — matching dan queue logic
-- `server/adapters/ahk.js` — eksekusi AHK
-- `server/adapters/vjoy.js` — eksekusi vJoy
+**File terkait:** `server/core/effectEngine.js`, `server/adapters/ahk.js`, `server/adapters/vjoy.js`
 
 **Yang perlu dicek:**
 - Apakah ada efek aktif yang cocok untuk nominal donasi tersebut
@@ -936,10 +1419,7 @@ Saat melaporkan atau memperbaiki bug, sertakan informasi berikut dan file terkai
 
 #### Bug: Dashboard tidak bisa diakses / blank
 
-**File terkait:**
-- `server/index.js` — static file serving
-- `electron/main.js` — `loadDashboard()` dan `startServer()`
-- `dashboard/dist/` — hasil build React (harus ada)
+**File terkait:** `server/index.js`, `electron/main.js`, `dashboard/dist/`
 
 **Yang perlu dicek:**
 - Apakah `npm run build` sudah dijalankan (dashboard/dist harus ada)
@@ -951,9 +1431,7 @@ Saat melaporkan atau memperbaiki bug, sertakan informasi berikut dan file terkai
 
 #### Bug: Overlay OBS tidak tampil / blank
 
-**File terkait:**
-- `overlay/index.html` — standalone HTML
-- `server/index.js` — static serving path overlay
+**File terkait:** `overlay/index.html`, `server/index.js`
 
 **Yang perlu dicek:**
 - Buka `http://localhost:3000/overlay` di browser biasa dulu
@@ -965,8 +1443,7 @@ Saat melaporkan atau memperbaiki bug, sertakan informasi berikut dan file terkai
 
 #### Bug: Error `no such table` saat setup database
 
-**File terkait:**
-- `server/db/setup.js`
+**File terkait:** `server/db/setup.js`
 
 **Root cause:** Seed data dijalankan sebelum tabel dibuat. Pastikan urutan di `setup.js` adalah: `db.exec()` (buat semua tabel) → baru seed data.
 
@@ -974,23 +1451,18 @@ Saat melaporkan atau memperbaiki bug, sertakan informasi berikut dan file terkai
 
 #### Bug: `better-sqlite3` error (MODULE_VERSION mismatch)
 
-**File terkait:**
-- `package.json` (versi better-sqlite3)
-
-**Fix:**
 ```bash
 npm uninstall better-sqlite3
 npm install better-sqlite3
 ```
+
 Jika masih error, butuh Visual C++ Build Tools untuk compile native module.
 
 ---
 
 #### Bug: Icon/tray tidak muncul di Electron packaged
 
-**File terkait:**
-- `electron/main.js` — fungsi `resolveIcon()`
-- `electron-builder.config.js` — `extraResources` section
+**File terkait:** `electron/main.js` (fungsi `resolveIcon()`), `electron-builder.config.js` (`extraResources`)
 
 **Yang perlu dicek:**
 - Apakah icon files ada di `electron/assets/`
@@ -1001,9 +1473,7 @@ Jika masih error, butuh Visual C++ Build Tools untuk compile native module.
 
 #### Bug: `process.exit` saat running dari Electron
 
-**File terkait:**
-- `server/index.js` — error handler port
-- `server/db/setup.js` — akhir fungsi setup
+**File terkait:** `server/index.js`, `server/db/setup.js`
 
 **Fix:** Semua `process.exit()` di server harus dilindungi dengan pengecekan `if (!process.env.ELECTRON)`.
 
@@ -1011,9 +1481,7 @@ Jika masih error, butuh Visual C++ Build Tools untuk compile native module.
 
 #### Bug: Testing endpoint "hanya tersedia di development mode"
 
-**File terkait:**
-- `server/routes/testing.js`
-- `server/routes/api.js`
+**File terkait:** `server/routes/testing.js`, `server/routes/api.js`
 
 **Fix:** Kondisi yang benar adalah `if (process.env.NODE_ENV === 'production' && !process.env.ELECTRON)`. Saat dijalankan dari Electron, `process.env.ELECTRON = '1'` sudah di-set di `electron/main.js`.
 
@@ -1021,43 +1489,117 @@ Jika masih error, butuh Visual C++ Build Tools untuk compile native module.
 
 #### Bug: Path `.env` error "ENOENT in app.asar"
 
-**File terkait:**
-- `server/routes/env.js`
-- `electron/main.js`
+**File terkait:** `server/routes/env.js`, `electron/main.js`
 
 **Root cause:** `.env` tidak bisa dibaca/ditulis dari dalam asar (read-only). Harus menggunakan `process.env.ENV_PATH` yang di-set oleh Electron ke path `%AppData%\Viewer Merusuh\.env`.
 
 ---
 
-## 16. Roadmap & Ide Pengembangan
+### Kategori Bug — Client Module
 
-### Fitur yang Belum Ada (Prioritas Tinggi)
+#### Bug: Client tidak bisa konek ke server
+
+**File terkait:** `client/src/core/connection.js`, `client/.env`
+
+**Yang perlu dicek:**
+- `SERVER_URL` harus pakai IP, bukan `localhost` (contoh: `http://192.168.1.10:3000`)
+- Coba `ping <IP_SERVER>` dari PC Client
+- Firewall PC Server harus mengizinkan port 3000 (TCP in)
+- Jika beda jaringan: gunakan ngrok atau Cloudflare Tunnel di PC Server
+
+---
+
+#### Bug: Efek diterima di log client tapi AHK tidak jalan
+
+**File terkait:** `client/src/adapters/ahk.js`, `client/.env`
+
+**Yang perlu dicek:**
+- `AHK_EXE_PATH` harus path ke AutoHotkey64.exe versi 2 (bukan versi 1)
+- Pastikan script `.ahk` ada di folder `client/adapters/ahk/games/` (salin dari server)
+- Set `LOG_LEVEL=debug` di `.env` untuk lihat path script yang dicoba
+- Coba jalankan script AHK manual dari Command Prompt
+
+---
+
+#### Bug: `auth_error` — client ditolak server
+
+**File terkait:** `client/.env`, `server/.env` atau `server/index.js`
+
+**Yang perlu dicek:**
+- `CLIENT_SECRET` di `client/.env` harus sama persis dengan `CLIENT_SECRET` di server `.env`
+- Pastikan middleware auth Socket.IO sudah ditambahkan di `server/index.js`
+- Generate ulang secret jika perlu
+
+---
+
+### Kategori Bug — RC Module
+
+#### Bug: RC Module tidak bisa konek ke ESP32
+
+**File terkait:** `rc-module/adapters/rc/rc-esp32.js`
+
+**Yang perlu dicek:**
+- IP address ESP32 di `rc_units.ip_address` harus benar dan reachable
+- ESP32 dan server harus di jaringan WiFi yang sama
+- Coba `ping <IP_ESP32>` dari PC server
+- Cek serial monitor ESP32 untuk log koneksi WebSocket
+- Firmware ESP32 harus sudah di-flash dari `rc-module/hardware/esp32/firmware.ino`
+
+---
+
+#### Bug: Donasi masuk tapi sesi RC tidak dimulai
+
+**File terkait:** `rc-module/core/sessionManager.js`, `rc-module/api/server.js`
+
+**Yang perlu dicek:**
+- Apakah integrasi dengan Viewer Merusuh sudah benar (Opsi A atau B)
+- Apakah nominal donasi memenuhi minimum sewa RC
+- Apakah ada RC unit berstatus `available` di fleet
+- Log `[SessionManager]` di console RC Module server
+
+---
+
+## 18. Roadmap & Ide Pengembangan
+
+### Core Server — Prioritas Tinggi
 
 - **Auto-update Electron** — implementasi `electron-updater` untuk update otomatis dari GitHub Releases
+- **Cooldown per efek yang berfungsi** — kolom `cooldown_ms` ada di DB tapi belum diimplementasi di effectEngine
+- **Migration system** — untuk ALTER TABLE saat update versi agar user tidak perlu hapus DB
+- **Statistik donasi** — grafik donasi per hari/minggu, total per platform, efek paling sering ditrigger
+
+### Core Server — Bisa Dikembangkan
+
+- **Adapter Saweria TTS** — trigger text-to-speech saat donasi masuk
 - **Adapter Streamlabs/StreamElements** — platform donasi internasional
-- **Ko-fi / Trakteer Stars** — platform donasi alternatif
-- **Cooldown per efek yang berfungsi** — saat ini kolom `cooldown_ms` ada di DB tapi belum diimplementasi di effectEngine
-- **Statistik donasi** — grafik donasi per hari/minggu, total per platform, efek yang paling sering ditrigger
-
-### Fitur yang Bisa Dikembangkan
-
-- **Multi-streamer mode** — satu server untuk beberapa streamer dengan room terpisah
-- **Efek kustom berbasis voting** — viewer vote efek yang mau dijalankan
 - **Integrasi TikTok Live** — TikTok gift sebagai trigger
 - **Plugin Minecraft** — Fabric/Forge mod
-- **Plugin Roblox** — via HTTP request dari dalam Roblox
-- **Antrian visual di overlay** — tampilkan berapa efek yang sedang mengantri
-- **Sound effect saat efek aktif** — play audio di PC streamer
+- **Efek kustom berbasis voting** — viewer vote efek yang mau dijalankan
+- **Antrian visual di overlay** — tampilkan berapa efek sedang mengantri
 - **Webhook outgoing** — notifikasi ke Discord/Telegram saat ada donasi
-- **API key management** — system key per streamer untuk fitur multi-user
+- **Multi-streamer mode** — satu server untuk beberapa streamer dengan room terpisah
+
+### Client Module — Next Steps
+
+- **Step 2:** AHK adapter lengkap + tool sinkronisasi script dari server via HTTP
+- **Step 3:** vJoy / ViGEmBus adapter (`npm install vigemclient`)
+- **Step 4:** Plugin proxy adapter — HTTP server lokal untuk polling dari game
+- **Step 5:** Web UI lokal (status koneksi, log efek, toggle adapter, auto-discovery LAN)
+
+### RC Module — Next Steps
+
+- **Phase 2:** Web controller UI (WASD + joystick) + simulasi browser + session timer
+- **Phase 3:** Firmware ESP32 + adapter `rc-esp32.js` + test hardware nyata
+- **Phase 4:** Streaming FPV (WebRTC via mediasoup atau HLS via ffmpeg)
+- **Phase 5:** Multi-RC fleet dashboard + queue otomatis
+- **Phase 6:** Integrasi penuh ke Viewer Merusuh + overlay OBS siapa yang kontrol RC
 
 ### Teknis / Refactor
 
-- **Migration system** — untuk ALTER TABLE saat update versi, agar user tidak perlu hapus DB
 - **Test suite** — unit test untuk effectEngine dan adapter matching logic
 - **TypeScript** — migrasi server ke TypeScript untuk type safety
-- **Prisma ORM** — ganti better-sqlite3 raw queries dengan ORM
 - **Docker support** — untuk deployment di VPS/server
+- **Prisma ORM** — ganti better-sqlite3 raw queries dengan ORM
 
 ---
 
@@ -1067,7 +1609,7 @@ Jika masih error, butuh Visual C++ Build Tools untuk compile native module.
 
 | Variable | Keterangan | Diset oleh |
 |----------|-----------|------------|
-| `PORT` | Port server | `.env` |
+| `PORT` | Port server utama (default 3000) | `.env` |
 | `NODE_ENV` | `development` atau `production` | `.env` atau Electron |
 | `DB_PATH` | Path absolut ke file SQLite | `electron/main.js` |
 | `ENV_PATH` | Path absolut ke file `.env` | `electron/main.js` |
@@ -1076,6 +1618,8 @@ Jika masih error, butuh Visual C++ Build Tools untuk compile native module.
 | `TRAKTEER_API_KEY` | Key untuk validasi webhook | `.env` |
 | `AHK_EXE_PATH` | Path ke AutoHotkey.exe | `.env` |
 | `PLUGIN_SECRET` | Secret untuk autentikasi plugin game | `.env` |
+| `CLIENT_SECRET` | Secret untuk autentikasi Client Module | `.env` |
+| `RC_MODULE_PORT` | Port RC Module (default 3001) | `rc-module/.env` |
 
 ### Perbedaan Dev vs Production
 
@@ -1083,20 +1627,32 @@ Jika masih error, butuh Visual C++ Build Tools untuk compile native module.
 |-------|-------------|----------------------|
 | Server start | `npm run dev` (nodemon) | `require('server/index.js')` di main.js |
 | DB path | `./viewer-merusuh.db` | `%AppData%\Viewer Merusuh\viewer-merusuh.db` |
-| `.env` path | `./env` | `%AppData%\Viewer Merusuh\.env` |
+| `.env` path | `./.env` | `%AppData%\Viewer Merusuh\.env` |
 | Dashboard | Vite dev server port+1 | Static files via Express `/dashboard` |
 | Testing endpoint | Aktif | Aktif (karena `ELECTRON=1`) |
 | NODE_ENV | `development` | `development` (default, bisa diubah user) |
 
+### Port yang Digunakan
+
+| Service | Port | Keterangan |
+|---------|------|-----------|
+| Server utama (Viewer Merusuh) | 3000 | Express + Socket.IO |
+| RC Module server | 3001 | Express + Socket.IO (terpisah) |
+| Client plugin proxy (lokal) | 3001* | HTTP server di PC Gaming |
+| Vite dev server (dashboard) | 3001* | Hanya saat `npm run dev` |
+
+> *Jika Client Module dan RC Module dijalankan di PC yang sama, pastikan port tidak bentrok.
+
 ### Konvensi Koding
 
 - **API response format:** `{ success: true, data: ... }` atau `{ success: false, error: '...' }`
-- **Action key format:** snake_case, contoh: `brake_force`, `custom_key_1`, `vjoy_brake`
-- **Adapter names:** `ahk`, `vjoy`, `plugin`
+- **Action key format:** snake_case — contoh: `brake_force`, `custom_key_1`, `vjoy_brake`, `rc_forward`
+- **Adapter names (core):** `ahk`, `vjoy`, `plugin`
+- **Adapter names (RC):** `esp32`, `raspi`, `simulator`, `drone_mavlink`
 - **Game targets:** `racing`, `action`, `fps`, `survival`, `global`, `gta5`, `beamng`
-- **Config keys:** snake_case, contoh: `pricelist_show`, `notif_border`
+- **Config keys:** snake_case — contoh: `pricelist_show`, `notif_border`
 
 ---
 
-*Dokumentasi ini terakhir diperbarui untuk Viewer Merusuh v1.0.0*
+*Dokumentasi ini terakhir diperbarui: v0.2.0 — mencakup Client Module (Phase 1) dan RC Module (Phase 1–2)*
 *GitHub: https://github.com/noobiiefun/Viewer-Merusuh*
