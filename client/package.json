@@ -1,0 +1,26 @@
+{
+  "name": "viewer-merusuh-client",
+  "version": "1.0.0",
+  "description": "Client agent untuk Viewer Merusuh — menjalankan efek game di PC Gaming terpisah",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "setup": "node scripts/setup.js"
+  },
+  "keywords": ["viewer-merusuh", "obs", "streamer", "client", "lan"],
+  "author": "noobiiefun",
+  "license": "MIT",
+  "dependencies": {
+    "socket.io-client": "^4.7.5",
+    "dotenv": "^16.4.5",
+    "chalk": "^4.1.2",
+    "node-fetch": "^2.7.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
