@@ -32,13 +32,14 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.18.3",
-    "socket.io": "^4.7.4"
+    "socket.io": "^4.7.4",
+    "vigemclient": "^1.5.3"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2",
+    "nodemon": "^3.1.0",
     "electron": "28.3.3",
     "electron-builder": "^26.15.3",
-    "nodemon": "^3.1.0"
+    "concurrently": "^8.2.2"
   },
   "optionalDependencies": {
     "vigemclient": "^1.5.3"

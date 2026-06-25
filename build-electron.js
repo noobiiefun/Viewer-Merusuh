@@ -256,20 +256,10 @@ async function main() {
   patchConfigVersion(electronVer)
   pinElectronVersion(electronVer)
 
-  // Rebuild better-sqlite3 untuk ABI Electron
-  const rebuildBin = path.join(electronNM, '.bin',
-    process.platform === 'win32' ? 'electron-rebuild.cmd' : 'electron-rebuild')
-
-  if (fs.existsSync(rebuildBin)) {
-    try {
-      run(`"${rebuildBin}" -f -w better-sqlite3 -v ${electronVer}`, ROOT)
-      ok('better-sqlite3 di-rebuild untuk Electron')
-    } catch (e) {
-      warn(`Rebuild gagal (${e.message}) — app mungkin perlu dijalankan sekali untuk auto-rebuild`)
-    }
-  } else {
-    warn('electron-rebuild tidak ditemukan — skip')
-  }
+  // better-sqlite3 v12+ punya prebuilt binary untuk semua Node.js versi (termasuk v24)
+  // electron-builder akan otomatis download prebuilt yang sesuai saat build
+  // TIDAK perlu Visual Studio / node-gyp compile manual
+  ok('better-sqlite3 v12 — prebuilt binary akan didownload otomatis saat build')
 
   // ── Step 5: Build .exe ────────────────────────────────────────────
   log('5/5', 'Build installer dan portable .exe...')
@@ -282,6 +272,8 @@ async function main() {
     fail(`electron-builder tidak ditemukan di:\n  ${builderBin}`)
   }
 
+  // Set env agar electron-builder tidak stop saat rebuild gagal
+  process.env.ELECTRON_BUILDER_CACHE = path.join(ROOT, '.electron-builder-cache')
   run(`"${builderBin}" build --win --config electron-builder.config.js`, ROOT)
 
   // ── Hasil ──────────────────────────────────────────────────────────
