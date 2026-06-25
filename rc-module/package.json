@@ -1,0 +1,34 @@
+{
+  "name": "rc-module",
+  "version": "0.1.0",
+  "description": "RC/Drone control extension for Viewer Merusuh",
+  "main": "api/server.js",
+  "scripts": {
+    "start": "node api/server.js",
+    "dev": "nodemon api/server.js",
+    "simulator": "RC_PORT=3001 node api/server.js"
+  },
+  "keywords": ["rc", "drone", "streaming", "viewer-merusuh"],
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.7.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "phasePlanned": {
+    "phase3": {
+      "ws": "^8.16.0",
+      "note": "Tambahkan untuk ESP32 WebSocket adapter"
+    },
+    "phase4": {
+      "mediasoup": "^3.x",
+      "fluent-ffmpeg": "^2.1.3",
+      "note": "Untuk WebRTC / HLS camera streaming"
+    },
+    "phase4_drone": {
+      "mavlink": "^1.0.x",
+      "note": "Untuk kontrol drone via MAVLink protocol"
+    }
+  }
+}
