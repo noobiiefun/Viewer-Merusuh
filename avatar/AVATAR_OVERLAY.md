@@ -3,11 +3,19 @@
 > Lokasi di repo: `avatar/` (root direktori Viewer Merusuh)
 > Viewer yang pernah **donasi** atau **sewa RC** berhak atas avatar — tier & jenis avatar diatur streamer dari dashboard.
 
+> ⚠️ **CATATAN PENTING — BACA DULU SEBELUM CODING:**
+> Modul ini terinspirasi dari konsep **Avatar Stream** (avatar pixel yang muncul di overlay saat viewer chat),
+> **TETAPI BERBEDA FUNDAMENTAL** dalam hal akses: avatar di sini **bukan untuk semua viewer**.
+> Hanya viewer yang sudah **berkontribusi** (donasi atau sewa RC) yang berhak memiliki avatar.
+> Viewer biasa yang hanya chat **tidak akan muncul**. Ini bukan bug — ini desain yang disengaja.
+> Lihat [Bagian 1.1 — Perbedaan dengan Avatar Stream Konvensional](#11-perbedaan-dengan-avatar-stream-konvensional) untuk penjelasan lengkap.
+
 ---
 
 ## Daftar Isi
 
 1. [Gambaran Umum](#1-gambaran-umum)
+   - [1.1 Perbedaan dengan Avatar Stream Konvensional](#11-perbedaan-dengan-avatar-stream-konvensional)
 2. [Konsep Sistem Tier Avatar](#2-konsep-sistem-tier-avatar)
 3. [Arsitektur Sistem](#3-arsitektur-sistem)
 4. [Alur Lengkap](#4-alur-lengkap)
@@ -50,6 +58,52 @@ Streamer mengatur sendiri dari dashboard: tier apa yang ada, avatar mana yang bi
 | **Halaman Pilih Avatar** | Viewer pilih via link web, hanya avatar sesuai tier yang muncul |
 | **Dashboard Streamer** | Kelola tier, avatar, viewer, dan status polling |
 | **Standalone dulu** | Berdiri sendiri, siap diintegrasikan ke Viewer Merusuh & RC Module nanti |
+
+---
+
+### 1.1 Perbedaan dengan Avatar Stream Konvensional
+
+> Bagian ini penting dipahami oleh siapapun (developer, AI, atau kontributor) yang membaca dokumentasi ini.
+
+#### Referensi: Avatar Stream
+
+**Avatar Stream** adalah fitur livestreaming populer — khususnya di platform seperti YouTube, Twitch, dan Niconico — di mana setiap viewer yang mengirim pesan di live chat **otomatis muncul** sebagai karakter pixel art di overlay OBS. Avatar biasanya di-generate secara acak atau berdasarkan nama/warna channel viewer tersebut, tanpa syarat apapun.
+
+Contoh implementasi yang umum dikenal:
+- **Cheer Chat Avatar** (Twitch)
+- Berbagai tool komunitas open-source berbasis `youtube-chat` atau `TwitchIO` yang men-spawn avatar untuk **semua** penonton yang chat
+
+#### Perbedaan Fundamental: Avatar di Viewer Merusuh
+
+Modul ini **menggunakan konsep yang sama** (avatar pixel berjalan di overlay, speech bubble dari live chat) tetapi **mengubah satu hal secara fundamental: siapa yang berhak muncul.**
+
+| Aspek | Avatar Stream Konvensional | Avatar Overlay (Viewer Merusuh) |
+|---|---|---|
+| **Siapa yang muncul?** | Semua viewer yang chat | Hanya viewer terdaftar (donasi / sewa RC) |
+| **Avatar dari mana?** | Di-generate otomatis / random | Dipilih sendiri oleh viewer dari koleksi streamer |
+| **Syarat muncul?** | Tidak ada — cukup kirim chat | Harus punya hak tier dulu, lalu pilih avatar |
+| **Kontrol streamer?** | Minimal | Penuh — tier, avatar per tier, on/off per viewer |
+| **Tujuan utama?** | Interaktivitas umum | Reward / apresiasi untuk viewer yang berkontribusi |
+| **Avatar unik?** | Biasanya random/generic | Dipilih viewer, bisa eksklusif per tier |
+
+#### Mengapa Desain Ini?
+
+Dalam ekosistem **Viewer Merusuh**, avatar berfungsi sebagai **reward eksklusif** — bukan sekadar hiasan. Viewer yang muncul di overlay adalah viewer yang sudah "merusuh" dengan cara yang berarti: donasi atau sewa RC. Ini menciptakan insentif dan rasa penghargaan yang lebih kuat dibanding sistem avatar yang muncul untuk semua orang.
+
+```
+❌ Viewer biasa yang hanya chat → tidak muncul di overlay (ini BUKAN bug)
+✅ Viewer yang sudah donasi / sewa RC → terdaftar → pilih avatar → muncul saat chat
+```
+
+#### Implikasi untuk Developer / AI
+
+Jika kamu (manusia atau AI) sedang membaca kode ini dan menemukan bahwa:
+- Pesan dari viewer yang **tidak terdaftar diabaikan** → itu benar, bukan bug
+- Ada **whitelist viewer** di DB → itu memang disengaja, bukan security hole
+- Tidak ada auto-generate avatar → viewer harus memilih sendiri dari halaman `/pick`
+- Ada sistem tier dengan threshold donasi → itu inti dari modul ini, bukan fitur tambahan
+
+Maka kamu sudah memahami desain yang benar. Jangan "memperbaiki" perilaku ini dengan membuat semua viewer bisa muncul — itu akan menghancurkan tujuan utama modul ini.
 
 ---
 
