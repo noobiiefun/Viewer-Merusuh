@@ -1,39 +1,28 @@
-/**
- * scripts/setup.js
- * Script setup pertama kali — membuat .env dari .env.example
- * jika belum ada.
- *
- * Jalankan: node scripts/setup.js
- */
-
+#!/usr/bin/env node
 'use strict';
 
 const fs   = require('fs');
 const path = require('path');
 
-const ROOT    = path.resolve(__dirname, '..');
-const envDest = path.join(ROOT, '.env');
-const envSrc  = path.join(ROOT, '.env.example');
+const envExample = path.join(__dirname, '..', '.env.example');
+const envTarget  = path.join(__dirname, '..', '.env');
 
-console.log('\n🔧  Viewer Merusuh Client — Setup\n');
-
-if (fs.existsSync(envDest)) {
-  console.log('✅  File .env sudah ada. Setup dilewati.');
-  console.log('   Jika ingin reset, hapus .env lalu jalankan setup lagi.\n');
+if (fs.existsSync(envTarget)) {
+  console.log('.env sudah ada. Hapus manual jika ingin reset.');
   process.exit(0);
 }
 
-if (!fs.existsSync(envSrc)) {
-  console.error('❌  File .env.example tidak ditemukan!');
+if (!fs.existsSync(envExample)) {
+  console.error('.env.example tidak ditemukan!');
   process.exit(1);
 }
 
-fs.copyFileSync(envSrc, envDest);
-
-console.log('✅  File .env berhasil dibuat dari .env.example');
-console.log('\n📝  Langkah selanjutnya:');
+fs.copyFileSync(envExample, envTarget);
+console.log('✅  File .env berhasil dibuat dari .env.example\n');
+console.log('📝  Langkah selanjutnya:');
 console.log('   1. Buka file .env');
 console.log('   2. Isi SERVER_URL dengan IP PC Server (PC OBS)');
 console.log('   3. Isi CLIENT_SECRET dengan nilai yang sama seperti di server');
 console.log('   4. Sesuaikan adapter yang ingin diaktifkan');
-console.log('   5. Jalankan: npm start\n');
+console.log('   5. (Opsional) Jalankan: npm run sync-scripts');
+console.log('   6. Jalankan: npm start');

@@ -1,73 +1,55 @@
-/**
- * src/index.js
- * Entry point utama Viewer Merusuh Client.
- *
- * Alur startup:
- *  1. Load config dari .env
- *  2. Validasi config
- *  3. Init AdapterManager (load adapter yang aktif)
- *  4. Buka koneksi Socket.IO ke server
- *  5. Tunggu dan proses efek
- */
-
 'use strict';
 
-const { validate } = require('./utils/config');
-const logger       = require('./utils/logger');
-const AdapterManager = require('./core/adapterManager');
-const Connection     = require('./core/connection');
+/**
+ * Viewer Merusuh — CLIENT
+ * Entry point: registrasi adapter aktif, lalu connect ke server
+ */
 
-const PKG = require('../package.json');
+const logger         = require('./utils/logger');
+const config         = require('./utils/config');
+const adapterManager = require('./core/adapterManager');
+const connection     = require('./core/connection');
 
-// ── Banner ──────────────────────────────────────────────────────
-console.log(`
-╔══════════════════════════════════════════════╗
-║   Viewer Merusuh — CLIENT  v${PKG.version.padEnd(16)}║
-║   "Penonton Bayar, Game Kacau."              ║
-╚══════════════════════════════════════════════╝
-`);
+logger.info('=== Viewer Merusuh Client ===');
+logger.info(`Nama   : ${config.CLIENT_NAME}`);
+logger.info(`Server : ${config.SERVER_URL}`);
 
-// ── Validasi env ────────────────────────────────────────────────
-validate();
+// ── Register adapters ───────────────────────
+if (config.ADAPTER_AHK) {
+  const ahkAdapter = require('./adapters/ahk');
+  adapterManager.register('ahk', ahkAdapter);
+  logger.info(`AHK adapter aktif — exe: ${config.AHK_EXE_PATH}`);
 
-// ── Bootstrap ───────────────────────────────────────────────────
-async function main() {
-  const { config } = require('./utils/config');
-
-  logger.info('Main', `Client Name : ${config.clientName}`);
-  logger.info('Main', `Server URL  : ${config.serverUrl}`);
-  logger.info('Main', `Log Level   : ${config.logLevel}`);
-
-  // 1. Init adapter manager
-  const adapterManager = new AdapterManager();
-  await adapterManager.init();
-
-  // 2. Buka koneksi ke server
-  const connection = new Connection(adapterManager);
-  connection.connect();
-
-  // ── Graceful shutdown ──────────────────────────────────────────
-  function shutdown(signal) {
-    logger.info('Main', `Menerima ${signal} — menutup koneksi...`);
-    connection.disconnect();
-    process.exit(0);
+  // Log available actions
+  const actions = ahkAdapter.getAvailableActions();
+  const ready   = actions.filter(a => a.exists);
+  const missing = actions.filter(a => !a.exists);
+  logger.info(`AHK scripts: ${ready.length} siap, ${missing.length} belum ada`);
+  if (missing.length > 0) {
+    logger.warn(`Script belum ada: ${missing.map(a => a.action).join(', ')}`);
+    logger.warn('Jalankan: npm run sync-scripts  (untuk sync dari server)');
   }
-
-  process.on('SIGINT',  () => shutdown('SIGINT'));
-  process.on('SIGTERM', () => shutdown('SIGTERM'));
-
-  // Tangkap uncaught agar client tidak langsung crash
-  process.on('uncaughtException', (err) => {
-    logger.error('Main', `Uncaught exception: ${err.message}`);
-    logger.error('Main', err.stack);
-  });
-
-  process.on('unhandledRejection', (reason) => {
-    logger.error('Main', `Unhandled rejection: ${reason}`);
-  });
 }
 
-main().catch((err) => {
-  console.error('❌ Fatal error saat startup:', err);
-  process.exit(1);
+if (config.ADAPTER_VJOY) {
+  logger.warn('ADAPTER_VJOY=true tapi stub belum diimplementasikan (Step 3)');
+}
+
+if (config.ADAPTER_PLUGIN) {
+  logger.warn('ADAPTER_PLUGIN=true tapi stub belum diimplementasikan (Step 4)');
+}
+
+// ── Koneksi ke server ───────────────────────
+connection.connect();
+
+// ── Graceful shutdown ───────────────────────
+process.on('SIGINT', () => {
+  logger.info('Shutting down...');
+  logger.info('Stats: ' + JSON.stringify(adapterManager.getStats(), null, 2));
+  connection.disconnect();
+  process.exit(0);
+});
+
+process.on('unhandledRejection', (err) => {
+  logger.error(`Unhandled rejection: ${err?.message || err}`);
 });

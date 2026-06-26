@@ -1,44 +1,30 @@
-/**
- * utils/logger.js
- * Logger sederhana dengan color-coding untuk console output.
- * Menggunakan chalk v4 (CommonJS compatible).
- */
-
 'use strict';
 
-const chalk = require('chalk');
+const config = (() => {
+  try { return require('./config'); } catch { return { LOG_LEVEL: 'info' }; }
+})();
 
 const LEVELS = { debug: 0, info: 1, warn: 2, error: 3 };
-const currentLevel = LEVELS[process.env.LOG_LEVEL || 'info'] ?? 1;
+const current = LEVELS[config.LOG_LEVEL] ?? LEVELS.info;
 
-function timestamp() {
-  return new Date().toLocaleTimeString('id-ID', { hour12: false });
-}
+const C = {
+  reset:  '\x1b[0m',
+  gray:   '\x1b[90m',
+  green:  '\x1b[32m',
+  yellow: '\x1b[33m',
+  red:    '\x1b[31m',
+  cyan:   '\x1b[36m',
+};
 
-function tag(label, color) {
-  return color(`[${label}]`);
+function ts() {
+  return new Date().toTimeString().slice(0, 8);
 }
 
 const logger = {
-  debug(label, ...args) {
-    if (currentLevel > 0) return;
-    console.log(chalk.gray(timestamp()), tag(label, chalk.gray), ...args);
-  },
-  info(label, ...args) {
-    if (currentLevel > 1) return;
-    console.log(chalk.white(timestamp()), tag(label, chalk.cyan), ...args);
-  },
-  success(label, ...args) {
-    if (currentLevel > 1) return;
-    console.log(chalk.white(timestamp()), tag(label, chalk.green), ...args);
-  },
-  warn(label, ...args) {
-    if (currentLevel > 2) return;
-    console.warn(chalk.yellow(timestamp()), tag(label, chalk.yellow), ...args);
-  },
-  error(label, ...args) {
-    console.error(chalk.red(timestamp()), tag(label, chalk.red), ...args);
-  },
+  debug: (msg) => { if (current <= 0) console.log(`${C.gray}[${ts()}] DBG${C.reset} ${msg}`); },
+  info:  (msg) => { if (current <= 1) console.log(`${C.cyan}[${ts()}] INF${C.reset} ${msg}`); },
+  warn:  (msg) => { if (current <= 2) console.log(`${C.yellow}[${ts()}] WRN${C.reset} ${msg}`); },
+  error: (msg) => { if (current <= 3) console.error(`${C.red}[${ts()}] ERR${C.reset} ${msg}`); },
 };
 
 module.exports = logger;
