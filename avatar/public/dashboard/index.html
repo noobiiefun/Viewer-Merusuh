@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Avatar Overlay — Dashboard</title>
+  <link rel="stylesheet" href="dashboard.css" />
+</head>
+<body>
+
+  <div class="app-shell">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <span class="brand-icon">👾</span>
+        <div>
+          <div class="brand-title">Avatar Overlay</div>
+          <div class="brand-sub">Viewer Merusuh</div>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-tab="polling">
+          <span class="nav-icon">📡</span>
+          <span>Polling Control</span>
+        </button>
+        <button class="nav-item" data-tab="viewers">
+          <span class="nav-icon">👥</span>
+          <span>Viewer Manager</span>
+          <span class="badge" id="badge-viewers">0</span>
+        </button>
+        <button class="nav-item" data-tab="tiers">
+          <span class="nav-icon">🏆</span>
+          <span>Tier Manager</span>
+        </button>
+        <button class="nav-item" data-tab="avatars">
+          <span class="nav-icon">🎭</span>
+          <span>Avatar Manager</span>
+        </button>
+        <button class="nav-item" data-tab="events">
+          <span class="nav-icon">💰</span>
+          <span>Input Event Manual</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="server-status">
+          <span class="status-dot" id="status-dot"></span>
+          <span id="status-label">Connecting…</span>
+        </div>
+        <div class="server-url">localhost:3500</div>
+      </div>
+    </aside>
+
+    <!-- Main content -->
+    <main class="main-content">
+
+      <!-- ─────────────────── TAB: POLLING ─────────────────── -->
+      <section class="tab-panel active" id="tab-polling">
+        <div class="panel-header">
+          <h1>Polling Control</h1>
+          <p class="panel-desc">Hubungkan ke YouTube Live Chat dan pantau aktivitas real-time.</p>
+        </div>
+
+        <div class="polling-grid">
+          <!-- Start/Stop card -->
+          <div class="card">
+            <div class="card-label">Sesi Polling</div>
+            <div class="polling-status-row">
+              <div class="big-indicator" id="poll-indicator">
+                <span class="ind-dot off"></span>
+                <span class="ind-text" id="poll-status-text">Tidak Aktif</span>
+              </div>
+              <div class="poll-meta" id="poll-meta" style="display:none">
+                <div class="poll-video-id">Video ID: <span id="poll-video-label">—</span></div>
+                <div class="poll-stats" id="poll-stats">Memuat stats…</div>
+              </div>
+            </div>
+
+            <div class="poll-form" id="poll-form">
+              <label class="field-label" for="input-video-id">YouTube Video ID</label>
+              <div class="input-row">
+                <input type="text" id="input-video-id" class="text-input" placeholder="Contoh: dQw4w9WgXcQ" />
+                <button class="btn btn-primary" id="btn-start-poll">▶ Mulai</button>
+              </div>
+              <div class="field-hint">Salin dari URL: youtube.com/watch?v=<strong>VIDEO_ID</strong></div>
+            </div>
+
+            <div class="poll-active-actions" id="poll-active-actions" style="display:none">
+              <button class="btn btn-danger" id="btn-stop-poll">⏹ Stop Polling</button>
+            </div>
+          </div>
+
+          <!-- Live chat log -->
+          <div class="card chat-card">
+            <div class="card-label">Log Chat Real-time
+              <span class="log-count" id="chat-log-count">0 pesan</span>
+            </div>
+            <div class="chat-log-box" id="chat-log-box">
+              <div class="log-empty">Polling belum aktif. Start polling untuk melihat chat masuk.</div>
+            </div>
+            <button class="btn btn-ghost btn-sm" id="btn-clear-log">Bersihkan Log</button>
+          </div>
+
+          <!-- Stats row -->
+          <div class="stats-row">
+            <div class="stat-card">
+              <div class="stat-value" id="stat-viewers">0</div>
+              <div class="stat-label">Viewer Terdaftar</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" id="stat-active">0</div>
+              <div class="stat-label">Sudah Pilih Avatar</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" id="stat-chat-today">0</div>
+              <div class="stat-label">Chat Diterima Sesi Ini</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" id="stat-tiers">0</div>
+              <div class="stat-label">Tier Aktif</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─────────────────── TAB: VIEWERS ─────────────────── -->
+      <section class="tab-panel" id="tab-viewers">
+        <div class="panel-header">
+          <h1>Viewer Manager</h1>
+          <p class="panel-desc">Kelola viewer yang berhak atas avatar.</p>
+        </div>
+
+        <div class="toolbar">
+          <div class="toolbar-left">
+            <input type="text" class="text-input search-input" id="viewer-search" placeholder="Cari nama viewer…" />
+            <select class="select-input" id="viewer-filter-tier">
+              <option value="">Semua Tier</option>
+            </select>
+          </div>
+          <div class="toolbar-right">
+            <button class="btn btn-primary" id="btn-add-viewer">+ Tambah Viewer</button>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table class="data-table" id="viewers-table">
+            <thead>
+              <tr>
+                <th>Nama YouTube</th>
+                <th>Tier</th>
+                <th>Avatar</th>
+                <th>Total Donasi</th>
+                <th>Sesi RC</th>
+                <th>Terakhir Chat</th>
+                <th>Status</th>
+                <th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="viewers-tbody">
+              <tr><td colspan="8" class="table-empty">Memuat data viewer…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ─────────────────── TAB: TIERS ─────────────────── -->
+      <section class="tab-panel" id="tab-tiers">
+        <div class="panel-header">
+          <h1>Tier Manager</h1>
+          <p class="panel-desc">Atur level akses avatar dan syarat masing-masing tier.</p>
+        </div>
+
+        <div class="toolbar">
+          <div class="toolbar-left"></div>
+          <div class="toolbar-right">
+            <button class="btn btn-primary" id="btn-add-tier">+ Buat Tier Baru</button>
+          </div>
+        </div>
+
+        <div class="tiers-list" id="tiers-list">
+          <div class="list-empty">Belum ada tier. Buat tier pertamamu!</div>
+        </div>
+      </section>
+
+      <!-- ─────────────────── TAB: AVATARS ─────────────────── -->
+      <section class="tab-panel" id="tab-avatars">
+        <div class="panel-header">
+          <h1>Avatar Manager</h1>
+          <p class="panel-desc">Kelola sprite avatar yang tersedia untuk dipilih viewer.</p>
+        </div>
+
+        <div class="toolbar">
+          <div class="toolbar-left">
+            <button class="btn btn-secondary" id="btn-scan-avatars">🔄 Scan Folder</button>
+          </div>
+          <div class="toolbar-right">
+            <label class="checkbox-label">
+              <input type="checkbox" id="show-disabled-avatars" />
+              Tampilkan yang dinonaktifkan
+            </label>
+          </div>
+        </div>
+
+        <div class="avatar-grid" id="avatar-grid">
+          <div class="list-empty">Klik "Scan Folder" untuk memuat avatar dari folder avatars/</div>
+        </div>
+      </section>
+
+      <!-- ─────────────────── TAB: EVENTS ─────────────────── -->
+      <section class="tab-panel" id="tab-events">
+        <div class="panel-header">
+          <h1>Input Event Manual</h1>
+          <p class="panel-desc">Input donasi atau sesi RC sebelum integrasi otomatis tersedia.</p>
+        </div>
+
+        <div class="events-grid">
+          <!-- Donasi Manual -->
+          <div class="card">
+            <div class="card-label">💵 Input Donasi Manual</div>
+            <p class="card-desc">Tambah donasi ke viewer yang sudah ada atau buat viewer baru otomatis.</p>
+
+            <div class="form-group">
+              <label class="field-label">Nama YouTube <span class="req">*</span></label>
+              <input type="text" class="text-input" id="don-name" placeholder="Nama persis seperti di chat" />
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="field-label">Nominal (Rp) <span class="req">*</span></label>
+                <input type="number" class="text-input" id="don-amount" placeholder="50000" min="0" />
+              </div>
+              <div class="form-group">
+                <label class="field-label">Platform</label>
+                <select class="select-input" id="don-platform">
+                  <option value="saweria">Saweria</option>
+                  <option value="trakteer">Trakteer</option>
+                  <option value="sociabuzz">SociaBuzz</option>
+                  <option value="manual">Manual</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="field-label">Catatan (opsional)</label>
+              <input type="text" class="text-input" id="don-note" placeholder="Contoh: donasi ulang tahun" />
+            </div>
+            <button class="btn btn-primary btn-full" id="btn-submit-donation">Simpan Donasi</button>
+            <div class="form-feedback" id="don-feedback"></div>
+          </div>
+
+          <!-- Sesi RC Manual -->
+          <div class="card">
+            <div class="card-label">🎮 Input Sesi RC Manual</div>
+            <p class="card-desc">Catat sesi sewa RC yang belum terekam otomatis.</p>
+
+            <div class="form-group">
+              <label class="field-label">Nama YouTube <span class="req">*</span></label>
+              <input type="text" class="text-input" id="rc-name" placeholder="Nama persis seperti di chat" />
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="field-label">RC ID <span class="req">*</span></label>
+                <input type="text" class="text-input" id="rc-id" placeholder="rc_01" />
+              </div>
+              <div class="form-group">
+                <label class="field-label">Durasi (detik)</label>
+                <input type="number" class="text-input" id="rc-duration" placeholder="300" min="0" />
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="field-label">Session ID (opsional)</label>
+              <input type="text" class="text-input" id="rc-session-id" placeholder="Auto-generate jika kosong" />
+            </div>
+            <button class="btn btn-primary btn-full" id="btn-submit-rc">Simpan Sesi RC</button>
+            <div class="form-feedback" id="rc-feedback"></div>
+          </div>
+
+          <!-- Log event terbaru -->
+          <div class="card event-log-card">
+            <div class="card-label">📋 Log Event Terbaru
+              <button class="btn btn-ghost btn-xs" id="btn-refresh-log">↻ Refresh</button>
+            </div>
+            <div class="event-log-box" id="event-log-box">
+              <div class="log-empty">Belum ada event tercatat.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ═══════ MODALS ═══════ -->
+
+  <!-- Modal: Tambah Viewer -->
+  <div class="modal-overlay" id="modal-add-viewer">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Tambah Viewer</h2>
+        <button class="modal-close" data-close="modal-add-viewer">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="field-label">Nama YouTube <span class="req">*</span></label>
+          <input type="text" class="text-input" id="new-viewer-name" placeholder="Nama persis seperti di chat" />
+        </div>
+        <div class="form-group">
+          <label class="field-label">Tier <span class="req">*</span></label>
+          <select class="select-input" id="new-viewer-tier"></select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" data-close="modal-add-viewer">Batal</button>
+        <button class="btn btn-primary" id="btn-confirm-add-viewer">Tambah</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Ganti Tier Viewer -->
+  <div class="modal-overlay" id="modal-change-tier">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Ganti Tier: <span id="change-tier-viewer-name"></span></h2>
+        <button class="modal-close" data-close="modal-change-tier">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="field-label">Tier Baru</label>
+          <select class="select-input" id="change-tier-select"></select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" data-close="modal-change-tier">Batal</button>
+        <button class="btn btn-primary" id="btn-confirm-change-tier">Simpan</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Buat/Edit Tier -->
+  <div class="modal-overlay" id="modal-tier-form">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="tier-form-title">Buat Tier Baru</h2>
+        <button class="modal-close" data-close="modal-tier-form">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="field-label">ID Tier <span class="req">*</span></label>
+          <input type="text" class="text-input" id="tier-id-input" placeholder="Contoh: sultan_merusuh" />
+          <div class="field-hint">Huruf kecil, garis bawah, tanpa spasi. Tidak bisa diubah setelah disimpan.</div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="field-label">Nama Tampil <span class="req">*</span></label>
+            <input type="text" class="text-input" id="tier-name-input" placeholder="Contoh: Sultan Merusuh" />
+          </div>
+          <div class="form-group">
+            <label class="field-label">Warna Badge</label>
+            <div class="color-input-row">
+              <input type="color" id="tier-color-picker" value="#7c3aed" />
+              <input type="text" class="text-input" id="tier-color-input" value="#7c3aed" placeholder="#7c3aed" />
+            </div>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="field-label">Min. Donasi (Rp)</label>
+            <input type="number" class="text-input" id="tier-min-don" placeholder="0 = abaikan" min="0" value="0" />
+          </div>
+          <div class="form-group">
+            <label class="field-label">Min. Sesi RC</label>
+            <input type="number" class="text-input" id="tier-min-rc" placeholder="0 = abaikan" min="0" value="0" />
+          </div>
+          <div class="form-group">
+            <label class="field-label">Prioritas</label>
+            <input type="number" class="text-input" id="tier-priority" placeholder="0" value="0" min="0" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="tier-allow-manual" checked />
+            Izinkan assign manual dari dashboard
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" data-close="modal-tier-form">Batal</button>
+        <button class="btn btn-primary" id="btn-confirm-tier-form">Simpan Tier</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Assign Avatar ke Tier -->
+  <div class="modal-overlay" id="modal-assign-avatars">
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <h2>Avatar untuk Tier: <span id="assign-tier-label"></span></h2>
+        <button class="modal-close" data-close="modal-assign-avatars">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="field-hint">Centang avatar yang boleh diakses viewer di tier ini.</p>
+        <div class="avatar-checklist" id="avatar-checklist"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" data-close="modal-assign-avatars">Tutup</button>
+        <button class="btn btn-primary" id="btn-confirm-assign-avatars">Simpan</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Edit Avatar -->
+  <div class="modal-overlay" id="modal-edit-avatar">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Edit Avatar: <span id="edit-avatar-id-label"></span></h2>
+        <button class="modal-close" data-close="modal-edit-avatar">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="field-label">Nama Tampil</label>
+          <input type="text" class="text-input" id="edit-avatar-name" />
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="field-label">Jumlah Frame</label>
+            <input type="number" class="text-input" id="edit-avatar-frames" min="1" value="4" />
+          </div>
+          <div class="form-group">
+            <label class="field-label">Lebar Frame (px)</label>
+            <input type="number" class="text-input" id="edit-avatar-width" min="1" value="32" />
+          </div>
+          <div class="form-group">
+            <label class="field-label">Tinggi Frame (px)</label>
+            <input type="number" class="text-input" id="edit-avatar-height" min="1" value="48" />
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" data-close="modal-edit-avatar">Batal</button>
+        <button class="btn btn-primary" id="btn-confirm-edit-avatar">Simpan</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="dashboard.js"></script>
+</body>
+</html>

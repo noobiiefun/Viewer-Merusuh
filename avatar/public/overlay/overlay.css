@@ -1,0 +1,142 @@
+/* ─────────────────────────────────────────────
+   Avatar Overlay — overlay.css
+   ⚠ Background HARUS transparan untuk OBS
+───────────────────────────────────────────── */
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  width: 1920px;
+  height: 1080px;
+  overflow: hidden;
+  background: transparent;  /* WAJIB untuk OBS */
+  font-family: 'Segoe UI', Arial, sans-serif;
+}
+
+/* ── Stage: area tempat avatar berdiri ── */
+#overlay-stage {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* ── Avatar Container ── */
+.avatar-container {
+  position: absolute;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  /* Posisi X di-set via JS */
+  transition: left 0s;       /* walk transition dikontrol JS */
+  will-change: left;
+}
+
+/* ── Speech Bubble ── */
+.speech-bubble {
+  position: relative;
+  background: rgba(255, 255, 255, 0.95);
+  color: #1a1a1a;
+  border-radius: 10px;
+  padding: 7px 12px;
+  max-width: 220px;
+  min-width: 60px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  word-break: break-word;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.25);
+  margin-bottom: 6px;
+
+  /* Animasi */
+  opacity: 0;
+  transform: translateY(4px) scale(0.95);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.speech-bubble.visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+/* Ekor bubble (segitiga ke bawah mengarah ke avatar) */
+.speech-bubble::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: rgba(255, 255, 255, 0.95);
+  border-bottom: none;
+}
+
+/* ── Nama Viewer ── */
+.avatar-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow:
+    -1px -1px 0 #000,
+     1px -1px 0 #000,
+    -1px  1px 0 #000,
+     1px  1px 0 #000,
+     0    2px 4px rgba(0,0,0,0.5);
+  margin-bottom: 2px;
+  white-space: nowrap;
+  letter-spacing: 0.03em;
+}
+
+/* Badge tier kecil di bawah nama */
+.avatar-tier-badge {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 4px;
+  margin-bottom: 2px;
+  text-shadow: none;
+  opacity: 0.9;
+}
+
+/* ── Sprite Avatar ── */
+.avatar-sprite {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;     /* Firefox */
+  background-repeat: no-repeat;
+  /* width, height, background-image, scale → di-set via JS per avatar */
+  flex-shrink: 0;
+}
+
+/* Walk cycle animation — dikontrol JS via style.animationName */
+@keyframes walk-cycle {
+  from { background-position-x: 0px; }
+  to   { background-position-x: var(--sprite-total-width); }  /* di-set inline */
+}
+
+/* ── State: WALK IN/OUT (horizontal CSS transition) ── */
+.avatar-container.walking {
+  transition: left var(--walk-duration, 2s) linear;
+}
+
+/* ── State: ARRIVED (idle — sprite berhenti di frame pertama) ── */
+.avatar-container.arrived .avatar-sprite {
+  animation-play-state: paused;
+  background-position-x: 0px;
+}
+
+/* ── Facing direction ── */
+.avatar-sprite.facing-right {
+  transform: var(--sprite-scale-transform);
+}
+.avatar-sprite.facing-left {
+  transform: var(--sprite-scale-transform-flip);
+}
+
+/* ── Fade out saat walk-out ── */
+.avatar-container.exiting {
+  transition: left var(--walk-duration, 2s) linear, opacity 0.5s ease 1.5s;
+  opacity: 0;
+}
