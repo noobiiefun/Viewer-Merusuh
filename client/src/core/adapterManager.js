@@ -1,83 +1,84 @@
 'use strict';
 
 /**
- * adapterManager.js — Router efek ke adapter yang sesuai
- * Step 2: tambah support logging execution time dan error recovery
+ * Adapter Manager
+ * Router efek → adapter yang sesuai berdasarkan payload.adapter
  */
 
 const logger = require('../utils/logger');
 
 class AdapterManager {
   constructor() {
-    this._adapters = new Map();
-    // Track execution stats per adapter
-    this._stats = new Map();
+    /** @type {Map<string, object>} */
+    this.adapters = new Map();
   }
 
   /**
-   * Register adapter
-   * @param {string} name - nama adapter (misal: 'ahk', 'vjoy')
-   * @param {object} adapter - object dengan method execute(payload)
+   * Daftarkan adapter
+   * @param {string} name - nama adapter (misal: 'ahk', 'vjoy', 'plugin')
+   * @param {object} adapter - objek adapter dengan method execute(payload)
    */
   register(name, adapter) {
-    if (!adapter || typeof adapter.execute !== 'function') {
-      throw new Error(`Adapter "${name}" harus memiliki method execute()`);
-    }
-    this._adapters.set(name, adapter);
-    this._stats.set(name, { success: 0, failed: 0, totalMs: 0 });
-    logger.info(`[AdapterManager] Adapter terdaftar: ${name}`);
+    this.adapters.set(name, adapter);
+    logger.debug(`[AdapterManager] Adapter "${name}" terdaftar.`);
   }
 
   /**
-   * Eksekusi efek berdasarkan payload.adapter
-   * @param {object} payload - event 'effect' dari server
+   * Inisialisasi semua adapter yang terdaftar
+   */
+  async initAll() {
+    for (const [name, adapter] of this.adapters.entries()) {
+      if (typeof adapter.init === 'function') {
+        logger.debug(`[AdapterManager] Init adapter "${name}"...`);
+        try {
+          const ok = await adapter.init();
+          if (ok === false) {
+            logger.warn(`[AdapterManager] Adapter "${name}" gagal init — akan dilewati.`);
+          }
+        } catch (err) {
+          logger.error(`[AdapterManager] Error init adapter "${name}":`, err.message);
+        }
+      }
+    }
+  }
+
+  /**
+   * Eksekusi efek berdasarkan payload
+   * @param {object} payload
+   * @param {string} payload.adapter  - nama adapter target
+   * @param {string} payload.action   - nama action
+   * @param {object} payload.params   - parameter tambahan
    */
   async execute(payload) {
-    const { id, name: effectName, adapter: adapterName, action, params, duration_ms, donation } = payload;
+    const { adapter: adapterName, action, params = {} } = payload;
 
-    logger.info(`[AdapterManager] Efek diterima: "${effectName}" (id=${id}) → adapter=${adapterName} action=${action}`);
-
-    const adapter = this._adapters.get(adapterName);
-    if (!adapter) {
-      logger.warn(`[AdapterManager] Adapter "${adapterName}" tidak terdaftar. Efek diabaikan.`);
+    if (!adapterName) {
+      logger.warn('[AdapterManager] Payload tidak memiliki field "adapter".');
       return;
     }
 
-    const stats = this._stats.get(adapterName);
-    const startTime = Date.now();
-
-    try {
-      await adapter.execute({ action, params, duration_ms, donation });
-      const elapsed = Date.now() - startTime;
-      stats.success++;
-      stats.totalMs += elapsed;
-      logger.info(`[AdapterManager] ✓ Efek "${effectName}" selesai dalam ${elapsed}ms`);
-    } catch (err) {
-      const elapsed = Date.now() - startTime;
-      stats.failed++;
-      logger.error(`[AdapterManager] ✗ Efek "${effectName}" gagal setelah ${elapsed}ms: ${err.message}`);
+    const adapter = this.adapters.get(adapterName);
+    if (!adapter) {
+      logger.warn(`[AdapterManager] Adapter "${adapterName}" tidak ditemukan.`);
+      logger.warn(`[AdapterManager] Adapter terdaftar: ${[...this.adapters.keys()].join(', ') || '(kosong)'}`);
+      return;
     }
+
+    logger.info(`[AdapterManager] Routing → [${adapterName}] action="${action}"`);
+    await adapter.execute({ action, params });
   }
 
   /**
-   * Daftar adapter terdaftar
+   * Destroy semua adapter (cleanup)
    */
-  listAdapters() {
-    return [...this._adapters.keys()];
-  }
-
-  /**
-   * Statistik eksekusi
-   */
-  getStats() {
-    const result = {};
-    for (const [name, s] of this._stats.entries()) {
-      const avgMs = s.success > 0 ? Math.round(s.totalMs / s.success) : 0;
-      result[name] = { ...s, avgMs };
+  async destroyAll() {
+    for (const [name, adapter] of this.adapters.entries()) {
+      if (typeof adapter.destroy === 'function') {
+        try { await adapter.destroy(); } catch {}
+        logger.debug(`[AdapterManager] Adapter "${name}" destroyed.`);
+      }
     }
-    return result;
   }
 }
 
-// Singleton
 module.exports = new AdapterManager();

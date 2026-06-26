@@ -385,8 +385,8 @@ socket.broadcast.emit('effect', effectPayload);
 | Step | Fitur | Status |
 |------|-------|--------|
 | **Step 1** | Scaffold, koneksi Socket.IO, AHK adapter dasar | ✅ Done |
-| **Step 2** | AHK adapter lengkap + sinkronisasi folder script dari server | 🔜 |
-| **Step 3** | vJoy / ViGEmBus adapter | 🔜 |
+| **Step 2** | AHK adapter lengkap + sinkronisasi folder script dari server | ✅ Done |
+| **Step 3** | vJoy / ViGEmBus adapter | ✅ Done |
 | **Step 4** | Plugin adapter (HTTP proxy lokal untuk GTA5/BeamNG polling) | 🔜 |
 | **Step 5** | Config UI sederhana (web dashboard lokal) + auto-discovery server di LAN | 🔜 |
 

@@ -1,24 +1,24 @@
 {
   "name": "viewer-merusuh-client",
-  "version": "0.2.0",
-  "description": "Viewer Merusuh — Client agent untuk PC Gaming",
+  "version": "0.4.0",
+  "description": "Client agent untuk Viewer Merusuh — menjalankan efek di PC Gaming",
   "main": "src/index.js",
   "scripts": {
     "start":        "node src/index.js",
     "dev":          "nodemon src/index.js",
     "setup":        "node scripts/setup.js",
-    "sync-scripts": "node scripts/sync-scripts.js",
-    "sync-force":   "node scripts/sync-scripts.js --force",
-    "sync-dry":     "node scripts/sync-scripts.js --dry-run"
+    "test:vjoy":    "node scripts/test-vjoy.js",
+    "test:ahk":     "node scripts/test-ahk.js",
+    "test:plugin":  "node scripts/test-plugin.js"
   },
   "dependencies": {
-    "dotenv":          "^16.4.5",
-    "socket.io-client": "^4.7.5"
+    "dotenv":           "^16.0.0",
+    "socket.io-client": "^4.7.0"
+  },
+  "optionalDependencies": {
+    "vigemclient": "^1.2.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.4"
-  },
-  "engines": {
-    "node": ">=18"
+    "nodemon": "^3.0.0"
   }
 }
