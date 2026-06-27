@@ -1244,24 +1244,53 @@ Ini **tidak perlu diimplementasi sekarang**, tapi arsitekturnya sudah mendukung 
 ## 18. Roadmap Pengembangan
 
 ### Phase 1 — MVP Standalone
-- [ ] Setup `avatar/` folder + `npm init` + install deps
-- [ ] `server/db/setup.js` — buat semua tabel
-- [ ] `server/core/tierEngine.js` — logic evaluasi tier
-- [ ] `server/routes/admin.js` — CRUD tier, avatar, viewer (minimal)
-- [ ] `server/routes/api.js` — check viewer, list avatar per tier, submit pick
-- [ ] `server/core/ytPoller.js` — YouTube chat polling (Opsi A: `youtube-chat`)
-- [ ] `server/index.js` — entry point Express + Socket.IO
-- [ ] `public/overlay/` — OBS overlay dengan walk animation + speech bubble
-- [ ] `public/pick/` — halaman pilih avatar dengan check tier
-- [ ] `public/dashboard/` — dashboard streamer (semua 5 tab)
-- [ ] Minimal 3–5 avatar pixel art siap pakai di `public/avatars/`
+
+#### Backend (Server)
+- [x] `package.json` — dependencies lengkap (express, socket.io, better-sqlite3, youtube-chat, dotenv)
+- [x] `server/db/setup.js` — semua tabel: tiers, avatars, tier_avatars, viewers, donor_log, chat_log
+- [x] `server/core/tierEngine.js` — evaluateTier, addDonation, addRcSession, assignTierManual, reevaluateAll, getViewerInfo
+- [x] `server/core/ytPoller.js` — YouTube chat polling via `youtube-chat`, filter ketat (terdaftar + tier + avatar + is_active), emit `chat_message`, simpan chat_log, update last_seen
+- [x] `server/routes/api.js` — GET /api/status, GET /api/viewers/check, GET /api/avatars, POST /api/viewers/pick, GET /api/avatars/info
+- [x] `server/routes/admin.js` — CRUD tier + avatar + viewer, polling control, donor-log, chat-log (semua endpoint sesuai spesifikasi)
+- [x] `server/index.js` — Express + Socket.IO port 3500, static files, mount routes, YtPoller instance, root endpoint
+
+#### Frontend — Overlay OBS
+- [x] `public/overlay/index.html` — struktur HTML minimal, load overlay.css + overlay.js
+- [x] `public/overlay/overlay.css` — stage 1920×1080, avatar-container, speech bubble, sprite animation, walk-cycle keyframe, state WALKING/ARRIVED/EXITING
+- [x] `public/overlay/overlay.js` — state machine lengkap (SPAWN→WALK_IN→ARRIVE→BUBBLE_SHOW→BUBBLE_HIDE→IDLE→WALK_OUT→REMOVED), Socket.IO client, fetchAvatarData dengan cache, loadConfig dari /api/status
+
+#### Frontend — Dashboard Streamer
+- [x] `public/dashboard/dashboard.css` — styling dashboard lengkap
+- [x] `public/dashboard/dashboard.js` — 5 tab (Polling, Viewers, Tiers, Avatars, Events), Socket.IO client, semua CRUD handler, modal management, toast notification
+- [ ] **`public/dashboard/index.html`** ← **BELUM ADA — SELANJUTNYA DIBUAT**
+
+#### Frontend — Halaman Pilih Avatar (Viewer)
+- [ ] `public/pick/index.html` ← **BELUM ADA**
+- [ ] `public/pick/pick.css` ← **BELUM ADA**
+- [ ] `public/pick/pick.js` ← **BELUM ADA**
+
+#### Assets & Config
+- [x] `.env.example` — semua variabel terdokumentasi
+- [ ] `public/avatars/` — minimal 3–5 avatar sprite PNG siap pakai ← **BELUM ADA**
+
+---
+
+### Status Saat Ini: Lanjutkan dari `public/dashboard/index.html`
+
+**File yang perlu dibuat berikutnya (urutan):**
+
+1. **`public/dashboard/index.html`** — HTML utama dashboard streamer (5 tab, semua modal, semua elemen yang dibutuhkan `dashboard.js`)
+2. **`public/pick/index.html`** — Halaman viewer pilih avatar
+3. **`public/pick/pick.css`** — Styling halaman pick
+4. **`public/pick/pick.js`** — Logic check viewer + load avatar grid + submit pick
+
+---
 
 ### Phase 2 — Polish Standalone
-- [ ] Walk animation masuk/keluar dari tepi layar
 - [ ] Avatar slot system: max N avatar, antrian jika penuh
-- [ ] Config panel di dashboard (scale, speed, duration)
+- [ ] Config panel di dashboard (scale, speed, duration bisa diubah dari UI)
 - [ ] YouTube API v3 resmi (upgrade dari `youtube-chat`)
-- [ ] Re-evaluasi tier otomatis saat streamer ubah syarat tier
+- [ ] Re-evaluasi tier otomatis saat streamer ubah syarat tier (sudah ada di reevaluateAll, perlu trigger dari admin PUT /tiers/:id)
 
 ### Phase 3 — Integrasi Viewer Merusuh
 - [ ] `avatar/server/integration/viewerMerusuh.js`
@@ -1320,7 +1349,8 @@ Ini **tidak perlu diimplementasi sekarang**, tapi arsitekturnya sudah mendukung 
 
 ---
 
-*Dokumentasi ini adalah perencanaan sebelum coding dimulai.*
-*Versi: 0.2.0-docs | Modul: Avatar Overlay for Viewer Merusuh*
+*Dokumentasi ini diperbarui sesuai progress coding aktual.*
+*Versi: 0.3.0-docs | Modul: Avatar Overlay for Viewer Merusuh*
 *Lokasi di repo: `avatar/` (root Viewer Merusuh)*
 *Sumber hak avatar: Donasi (Saweria/Trakteer) + Sewa RC Module*
+*Progress Phase 1: Backend 100% ✅ | Overlay 100% ✅ | Dashboard JS+CSS 100% ✅ | Dashboard HTML ❌ | Pick page ❌*
