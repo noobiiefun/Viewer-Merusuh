@@ -5,88 +5,19 @@
 **Platform interaktif open-source untuk livestreamer — biarkan viewer "merusuh" saat kamu main game melalui donasi.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-purple.svg)](LICENSE)
-[![Node.js](https://img.shields.io/badge/Node.js-18%2B-green.svg)](https://nodejs.org)
-[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-blue.svg)]()
+[![Node.js](https://img.shields.io/badge/Node.js-v20%20LTS-green.svg)](https://nodejs.org)
+[![Platform](https://img.shields.io/badge/Platform-Windows-blue.svg)]()
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)]()
 
-[Demo](#demo) · [Fitur](#fitur) · [Instalasi](#instalasi) · [Konfigurasi](#konfigurasi) · [API](#api-reference) · [Kontribusi](#kontribusi)
+[Fitur](#fitur) · [Instalasi](#instalasi) · [Konfigurasi](#konfigurasi) · [Client Module](#client-module--setup-2-pc) · [API](#api-reference) · [Kontribusi](#kontribusi)
 
 </div>
 
 ---
 
-## Download & Install (Untuk User)
-
-> Tidak perlu coding sama sekali!
-
-### Opsi A — Installer .exe (Recommended)
-
-1. Download `viewer-merusuh-setup-x.x.x.exe` dari [GitHub Releases](https://github.com/username/viewer-merusuh/releases)
-2. Jalankan installer → Next → Next → Install → Finish
-3. Viewer Merusuh otomatis terbuka
-4. Setup Wizard akan muncul untuk panduan konfigurasi
-
-### Opsi B — Portable .exe
-
-1. Download `viewer-merusuh-x.x.x-portable.exe`
-2. Letakkan di folder mana saja
-3. Double-click untuk jalankan
-
-### Opsi C — Manual (dari source)
-
-## Instalasi untuk Non-Developer (Phase 7)
-
-Tidak perlu coding! Cukup ikuti langkah berikut:
-
-### Langkah 1 — Prasyarat
-- Download dan install **Node.js LTS** dari https://nodejs.org
-- Restart PC setelah install
-
-### Langkah 2 — Setup Pertama
-```
-Double-click: SETUP.bat
-```
-Script ini otomatis:
-- Install semua dependencies
-- Buat database SQLite
-- Buat file `.env` dari template
-- Build dashboard React
-
-### Langkah 3 — Mulai Streaming
-```
-Double-click: START.bat
-```
-Browser otomatis terbuka ke Dashboard. Setup Wizard akan muncul untuk panduan konfigurasi awal.
-
-### File Installer
-
-| File | Fungsi |
-|------|--------|
-| `SETUP.bat` | Setup pertama kali (jalankan sekali) |
-| `START.bat` | Mulai server (jalankan sebelum streaming) |
-| `STOP.bat` | Matikan server |
-| `UPDATE.bat` | Update ke versi terbaru dari GitHub |
-| `README_INSTALL.txt` | Instruksi lengkap offline |
-
-### Build Release untuk Distribusi
-
-```bash
-# Build dashboard dulu
-npm run build
-
-# Buat ZIP release
-node installer/make-release.js
-
-# Output: dist/viewer-merusuh-v1.0.0.zip
-```
-
-Upload ZIP ke GitHub Releases — user tinggal extract dan double-click `SETUP.bat`.
-
----
-
 ## Apa itu Viewer Merusuh?
 
-Viewer Merusuh adalah alternatif open-source dari Crowd Control yang **bebas platform donasi dan bebas platform streaming**. Viewer bisa mengirim donasi (lewat Saweria, Trakteer, dan platform lainnya) untuk memicu aksi dalam game yang sedang dimainkan streamer secara real-time.
+Viewer Merusuh adalah alternatif open-source dari **Crowd Control** yang bebas platform donasi dan bebas platform streaming. Viewer bisa mengirim donasi (lewat Saweria, Trakteer, dan platform lainnya) untuk memicu aksi dalam game yang sedang dimainkan streamer secara real-time.
 
 Contoh skenario:
 - Viewer donasi **Rp 5.000** → karakter/kendaraan **rem mendadak** selama 3 detik
@@ -99,33 +30,46 @@ Contoh skenario:
 
 ## Fitur
 
-- ✅ **Multi-platform donasi** — Saweria, Trakteer, dan mudah ditambah adapter baru
+- ✅ **Multi-platform donasi** — Saweria, Trakteer, mudah tambah adapter baru
 - ✅ **Multi-platform streaming** — YouTube, TikTok, Twitch, Facebook — bebas pilih
-- ✅ **Effect engine** — mapping nominal donasi ke aksi game yang fleksibel
-- ✅ **Game adapter** — support AutoHotkey (Windows), vJoy/ViGEm (virtual gamepad), xdotool (Linux)
-- ✅ **OBS Overlay** — notifikasi real-time via browser source
-- ✅ **Dashboard web** — konfigurasi efek lewat browser, no coding
-- ✅ **Queue system** — efek antri atau paralel, bisa diatur
-- ✅ **Cooldown per efek** — cegah spam efek yang sama
-- ✅ **Test mode** — simulasi donasi tanpa perlu donasi sungguhan
-- ✅ **REST API** — integrasi dengan tool lain via API
+- ✅ **Effect engine** — mapping nominal donasi ke aksi game yang fleksibel, queue sequential atau paralel
+- ✅ **AutoHotkey adapter** — inject keyboard/mouse untuk Racing, Action, FPS, Survival
+- ✅ **vJoy / ViGEmBus adapter** — virtual Xbox 360 controller untuk game racing yang pakai controller
+- ✅ **Plugin native** — GTA 5 (SHVDN C#, 23 efek) & BeamNG.drive (Lua, 10 efek)
+- ✅ **OBS Overlay** — notifikasi real-time + price list via browser source
+- ✅ **Dashboard web React** — manajemen efek, log donasi, konfigurasi, AHK presets, test donasi
+- ✅ **Setup Wizard** — panduan konfigurasi awal 7 langkah, otomatis muncul pertama kali
+- ✅ **Electron app** — bisa di-build jadi `.exe` installer atau portable untuk distribusi
+- ✅ **Client Module** — agent untuk setup 2 PC (PC Gaming terpisah dari PC OBS)
 
 ---
 
 ## Arsitektur
 
 ```
-Viewer → [Platform Donasi] → Webhook → [Viewer Merusuh Server]
-                                              │
-                              ┌───────────────┼───────────────┐
-                              ▼               ▼               ▼
-                        Effect Engine    Dashboard Web    OBS Overlay
+Viewer → [Saweria / Trakteer] → Webhook → [Viewer Merusuh Server — Port 3000]
+                                                        │
+                              ┌─────────────────────────┼──────────────────────┐
+                              ▼                         ▼                      ▼
+                        Effect Engine           Dashboard Web            OBS Overlay
+                         (queue + match)         (React, /dashboard)    (/overlay)
                               │
-                              ▼
-                        Game Adapter (AHK / vJoy)
-                              │
-                              ▼
-                           🎮 Game
+                    ┌─────────┴──────────┐
+                    ▼                    ▼
+              AHK / vJoy          Plugin Native
+              (keyboard +         (GTA5 / BeamNG
+               controller)         polling API)
+                    │                    │
+                    └──────┬─────────────┘
+                           ▼
+                        🎮 Game
+                           │
+                   (via LAN / Socket.IO)
+                           │
+                           ▼
+                   [CLIENT MODULE — Port 3002]
+                   PC Gaming Terpisah
+                   (AHK + vJoy + Plugin lokal)
 ```
 
 ---
@@ -134,28 +78,96 @@ Viewer → [Platform Donasi] → Webhook → [Viewer Merusuh Server]
 
 ```
 viewer-merusuh/
-├── server/                  # Backend Node.js
-│   ├── index.js             # Entry point server
-│   ├── adapters/            # Adapter platform donasi
-│   │   ├── saweria.js       # Saweria webhook handler
-│   │   └── trakteer.js      # Trakteer webhook handler
+│
+├── electron/                    # Electron desktop app (main process, tray, IPC)
+│   └── main.js
+│
+├── server/                      # Backend Node.js — core server
+│   ├── index.js                 # Entry point Express + Socket.IO — Port 3000
 │   ├── core/
-│   │   ├── effectEngine.js  # Logic mapping donasi → efek
-│   │   └── eventBus.js      # Internal event system
+│   │   ├── effectEngine.js      # Queue efek, matching donasi → efek
+│   │   └── eventBus.js          # EventEmitter singleton
+│   ├── adapters/
+│   │   ├── saweria.js           # Webhook handler Saweria
+│   │   ├── trakteer.js          # Webhook handler Trakteer
+│   │   ├── ahk.js               # AutoHotkey adapter
+│   │   └── vjoy.js              # ViGEm virtual gamepad adapter
 │   ├── db/
-│   │   ├── database.js      # SQLite connection
-│   │   └── setup.js         # Database initializer
+│   │   ├── database.js          # SQLite singleton
+│   │   └── setup.js             # Init schema + seed data
 │   └── routes/
-│       └── api.js           # REST API endpoints
-├── dashboard/               # [Phase 3] React dashboard
+│       ├── api.js               # REST API utama
+│       ├── plugin.js            # Plugin game polling endpoint
+│       ├── env.js               # .env editor dari dashboard
+│       └── testing.js           # Testing area endpoint
+│
+├── dashboard/                   # Frontend React (Vite)
+│   └── src/
+│       ├── App.jsx
+│       └── pages/               # DashboardPage, EffectsPage, AhkPage, VjoyPage, ...
+│
 ├── overlay/
-│   └── index.html           # OBS Browser Source overlay
+│   └── index.html               # OBS Browser Source overlay (standalone HTML)
+│
 ├── adapters/
-│   └── ahk/                 # [Phase 2] AutoHotkey scripts
+│   └── ahk/                     # AutoHotkey scripts
+│       ├── lib/                 # VM_Lib.ahk, generic_key.ahk, generic_combo.ahk
+│       └── games/               # racing/, action/, fps/, survival/
+│
+├── plugins/
+│   ├── gta5/ViewerMerusuh.cs   # ScriptHookV .NET plugin
+│   └── beamng/viewermerusuh/   # BeamNG Lua extension
+│
+├── client/                      # Client Module — PC Gaming terpisah
+│   ├── src/
+│   │   ├── index.js
+│   │   ├── core/
+│   │   │   ├── connection.js    # Socket.IO ke server + auto-reconnect
+│   │   │   ├── adapterManager.js
+│   │   │   ├── dashboard.js     # Web UI Port 3002
+│   │   │   └── discovery.js     # UDP LAN scan
+│   │   └── adapters/
+│   │       ├── ahk.js
+│   │       ├── vjoy.js
+│   │       └── plugin.js
+│   └── dashboard/
+│       └── connection.html      # Dashboard 4-tab (koneksi, adapter, log, console)
+│
+├── installer/                   # Script distribusi non-developer
+│   ├── SETUP.bat
+│   ├── START.bat
+│   ├── STOP.bat
+│   └── UPDATE.bat
+│
+├── docs/
+│   ├── ADDING_GAMES.md
+│   ├── VJOY_GUIDE.md
+│   └── BUILD_ELECTRON.md
+│
+├── electron-builder.config.js
+├── build-electron.js
 ├── .env.example
-├── package.json
-└── README.md
+└── package.json
 ```
+
+---
+
+## Download & Install
+
+### Opsi A — Installer .exe (Recommended untuk user)
+
+1. Download `viewer-merusuh-setup-x.x.x.exe` dari [GitHub Releases](https://github.com/noobiiefun/Viewer-Merusuh/releases)
+2. Jalankan installer → Next → Next → Install → Finish
+3. Viewer Merusuh otomatis terbuka, Setup Wizard muncul untuk panduan konfigurasi
+
+### Opsi B — Portable .exe
+
+1. Download `viewer-merusuh-x.x.x-portable.exe` dari Releases
+2. Letakkan di folder mana saja, double-click untuk jalankan
+
+### Opsi C — Dari Source (untuk developer)
+
+Lihat bagian [Instalasi](#instalasi) di bawah.
 
 ---
 
@@ -163,8 +175,8 @@ viewer-merusuh/
 
 ### Prasyarat
 
-- [Node.js](https://nodejs.org) versi 18 atau lebih baru
-- Windows (untuk AutoHotkey adapter) / Linux / macOS
+- [Node.js v20 LTS](https://nodejs.org) — **wajib v20**, bukan v18 atau v22+ (kompatibilitas `better-sqlite3`)
+- Windows (wajib untuk AutoHotkey dan ViGEmBus)
 - Akun Saweria atau Trakteer dengan fitur webhook aktif
 
 ### Langkah Instalasi
@@ -172,8 +184,8 @@ viewer-merusuh/
 **1. Clone repository**
 
 ```bash
-git clone https://github.com/username/viewer-merusuh.git
-cd viewer-merusuh
+git clone https://github.com/noobiiefun/Viewer-Merusuh.git
+cd Viewer-Merusuh
 ```
 
 **2. Install dependencies**
@@ -188,7 +200,7 @@ npm install
 cp .env.example .env
 ```
 
-Buka file `.env` dan isi sesuai kebutuhan:
+Buka `.env` dan isi minimal:
 
 ```env
 PORT=3000
@@ -197,32 +209,11 @@ TRAKTEER_API_KEY=api_key_kamu_dari_trakteer
 NODE_ENV=development
 ```
 
-**3b. Ganti port jika bentrok (opsional)**
-
-Buka file `.env` dan ganti nilai `PORT`:
-
-```env
-# Port default
-PORT=3000
-
-# Jika bentrok, ganti ke salah satu ini:
-PORT=3001
-PORT=3030
-PORT=4000
-PORT=8080
-```
-
-Jika port sudah dipakai aplikasi lain, server akan otomatis menampilkan pesan error dan saran port alternatif.
-
-Dashboard development (Vite) otomatis pakai `PORT+1` — jadi jika server di port 3001, dashboard dev buka di 3002.
-
 **4. Inisialisasi database**
 
 ```bash
 npm run setup
 ```
-
-Perintah ini membuat file `viewer-merusuh.db` dengan tabel dan efek default.
 
 **5. Jalankan server**
 
@@ -234,7 +225,15 @@ npm run dev
 npm start
 ```
 
-Server berjalan di `http://localhost:3000`.
+Server berjalan di `http://localhost:3000`. Dashboard di `http://localhost:3000/dashboard`.
+
+### Cara Non-Developer (script .bat)
+
+```
+Double-click: SETUP.bat   ← jalankan sekali saat pertama kali
+Double-click: START.bat   ← jalankan setiap mau streaming
+Double-click: STOP.bat    ← matikan server
+```
 
 ---
 
@@ -243,37 +242,56 @@ Server berjalan di `http://localhost:3000`.
 ### Saweria
 
 1. Login ke [saweria.co](https://saweria.co) → **Dashboard** → **Webhook**
-2. Set Webhook URL ke: `http://IP_LOKAL_KAMU:3000/webhook/saweria`
-3. Copy **Stream Key** dan paste ke file `.env` sebagai `SAWERIA_STREAM_KEY`
-
-> Jika server berjalan lokal dan tidak punya IP publik, gunakan [ngrok](https://ngrok.com) atau [localtunnel](https://localtunnel.me) untuk expose port lokal ke internet.
-
-```bash
-# Contoh dengan ngrok
-ngrok http 3000
-
-# Gunakan URL yang diberikan ngrok sebagai webhook URL
-# Contoh: https://abc123.ngrok.io/webhook/saweria
-```
+2. Set Webhook URL: `http://IP_LOKAL_KAMU:3000/webhook/saweria`
+3. Copy **Stream Key** → paste ke `.env` sebagai `SAWERIA_STREAM_KEY`
 
 ### Trakteer
 
 1. Login ke [trakteer.id](https://trakteer.id) → **Manage** → **Integration** → **Webhook**
-2. Set Webhook URL ke: `http://IP_LOKAL_KAMU:3000/webhook/trakteer`
-3. Copy **API Key** dan paste ke `.env` sebagai `TRAKTEER_API_KEY`
+2. Set Webhook URL: `http://IP_LOKAL_KAMU:3000/webhook/trakteer`
+3. Copy **API Key** → paste ke `.env` sebagai `TRAKTEER_API_KEY`
+
+> Jika server di lokal tanpa IP publik, gunakan [ngrok](https://ngrok.com) atau [Cloudflare Tunnel](https://cloudflare.com/products/tunnel/) untuk expose ke internet:
+> ```bash
+> ngrok http 3000
+> # Pakai URL ngrok sebagai webhook URL
+> ```
 
 ### OBS Overlay
 
-1. Di OBS, tambahkan source baru: **Browser Source**
-2. Set URL ke: `http://localhost:3000/overlay`
-3. Width: `400`, Height: `600`, background transparan ✓
-4. Letakkan di pojok layar sesuai selera
+1. Di OBS tambahkan source: **Browser Source**
+2. URL: `http://localhost:3000/overlay`
+3. Width: `400`, Height: `600`, centang **Transparent background**
+4. Overlay otomatis menampilkan notifikasi donasi + price list efek aktif
+
+### Dashboard Web
+
+Buka `http://localhost:3000/dashboard` di browser setelah server jalan.
+
+**Halaman yang tersedia:**
+- **Dashboard** — stat card + live feed efek real-time + panel test donasi
+- **Manajemen Efek** — tambah/edit/hapus/toggle efek, filter per grup game
+- **AHK** — game groups, presets tombol, custom keys
+- **vJoy** — status ViGEmBus + test aksi controller
+- **Log Donasi** — riwayat semua donasi masuk
+- **Konfigurasi** — webhook URL, overlay, queue mode
+- **Testing Area** — simulasi donasi + direct trigger efek
+- **Secrets** — edit `.env` langsung dari UI
+
+### Port yang Digunakan
+
+| Service | Port |
+|---------|------|
+| Server utama (Viewer Merusuh) | 3000 |
+| Client Module web dashboard | 3002 |
+| Vite dev server (saat `npm run dev:dashboard`) | 5173 |
+| Plugin game polling lokal (di PC Gaming) | 3001 |
 
 ---
 
 ## Manajemen Efek
 
-Efek dikonfigurasi lewat **REST API** atau nantinya lewat **Dashboard Web** (Phase 3).
+Efek dikonfigurasi dari halaman **Manajemen Efek** di dashboard.
 
 ### Efek Default
 
@@ -284,38 +302,184 @@ Efek dikonfigurasi lewat **REST API** atau nantinya lewat **Dashboard Web** (Pha
 | Hujan Bom | Rp 20.000 | Rp 49.999 | GTA 5 | 8 detik |
 | Chaos Ultimate | Rp 50.000 | ∞ | Global | 15 detik |
 
-### Tambah Efek Baru via API
+### Tambah Efek via API
 
 ```bash
 curl -X POST http://localhost:3000/api/effects \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Balik Kamera",
-    "description": "Membalik perspektif kamera selama 5 detik",
     "min_amount": 15000,
     "max_amount": 24999,
     "game_target": "global",
     "adapter": "ahk",
     "action_key": "flip_camera",
-    "duration_ms": 5000,
-    "cooldown_ms": 10000
+    "duration_ms": 5000
   }'
 ```
 
-### Test Donasi (Development)
+---
 
-Tanpa perlu donasi sungguhan, simulasikan via API:
+## AutoHotkey Adapter
+
+### Prasyarat
+
+- [AutoHotkey v2](https://www.autohotkey.com/download/) terinstall di Windows
+- Set path di `.env`: `AHK_EXE_PATH=C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe`
+
+### Efek per Grup
+
+**🏎️ Racing** — BeamNG.drive, NFS, Forza, GTA 5 racing
+
+| action_key | Efek |
+|------------|------|
+| `brake_force` | Rem mendadak |
+| `handbrake` | Rem tangan |
+| `full_throttle` | Gas penuh paksa |
+| `flip_car` | Balik mobil |
+| `slow_motion` | Slow motion |
+
+**💥 Action / Open World** — GTA 5, RDR2
+
+| action_key | Efek |
+|------------|------|
+| `horn_spam` | Spam klakson |
+| `explosion_rain` | Hujan bom |
+| `wanted_level_up` | +3 bintang wanted |
+| `ragdoll` | Karakter jatuh |
+| `chaos_mode` | Semua efek sekaligus |
+
+**🔫 FPS** — CS2, Valorant, COD
+
+| action_key | Efek |
+|------------|------|
+| `no_ammo` | Paksa reload terus |
+| `invert_mouse` | Kamera chaos |
+| `random_weapon` | Ganti senjata acak |
+
+**🌲 Survival** — Minecraft, Rust, DayZ
+
+| action_key | Efek |
+|------------|------|
+| `drop_item` | Drop item berulang |
+| `camera_shake` | Kamera goyang |
+
+Panduan menambah script untuk game baru: [`docs/ADDING_GAMES.md`](docs/ADDING_GAMES.md)
+
+---
+
+## vJoy / ViGEm Virtual Gamepad
+
+Untuk racing game yang pakai controller — Viewer Merusuh bisa mengendalikan axis dan tombol via **ViGEmBus** (virtual Xbox 360 controller).
+
+### Prasyarat
+
+1. Install [ViGEmBus driver](https://github.com/nefarius/ViGEmBus/releases) → restart PC
+2. `npm install` (vigemclient sudah di package.json)
+
+### Aksi yang Tersedia (`adapter: "vjoy"`)
+
+| action_key | Efek | Input |
+|------------|------|-------|
+| `vjoy_brake` | Rem penuh | Left Trigger 100% |
+| `vjoy_throttle` | Gas penuh | Right Trigger 100% |
+| `vjoy_steer_left` | Steer kiri | Left Stick ← max |
+| `vjoy_steer_right` | Steer kanan | Left Stick → max |
+| `vjoy_random_steer` | Steer chaos | Left Stick oscillate |
+| `vjoy_handbrake` | Handbrake | Button X |
+| `vjoy_drift_chaos` | Gas + steer chaos | RT 100% + oscillate |
+| `vjoy_reverse` | Mundur paksa | LT 100% + stick down |
+| `vjoy_rumble` | Getarkan controller | Steer chaos ringan |
+| `vjoy_disconnect` | Cabut-colok controller | Disconnect/reconnect |
+
+Panduan lengkap: [`docs/VJOY_GUIDE.md`](docs/VJOY_GUIDE.md)
+
+---
+
+## Plugin Native Game
+
+Plugin berjalan **di dalam game** untuk kontrol yang lebih presisi dibanding keyboard inject.
+
+```
+Server ←── Plugin polling GET /api/plugin/pending?game=gta5
+       ──► Plugin eksekusi native API game
+       ──► Plugin lapor POST /api/plugin/done
+```
+
+### GTA 5 — ScriptHookV .NET (C#)
+
+23 efek native: wanted level, ledakan, cuaca, kendaraan, NPC, dan lainnya.
+
+Instalasi: copy `plugins/gta5/ViewerMerusuh.cs` ke `Grand Theft Auto V/scripts/`
+
+> ⚠️ **Hanya Story Mode.** Jangan digunakan di GTA Online.
+
+### BeamNG.drive — Lua Extension
+
+10 efek native: rem, gas, steer, slow motion, kerusakan acak, dan lainnya.
+
+Instalasi: copy folder `plugins/beamng/viewermerusuh/` ke `Documents/BeamNG.drive/mods/unpacked/`
+
+---
+
+## Client Module — Setup 2 PC
+
+Untuk streamer dengan setup **2 PC** (PC OBS terpisah dari PC Gaming). Client Module adalah agent Node.js yang berjalan di PC Gaming dan menerima perintah efek dari server via Socket.IO.
+
+```
+PC OBS / Stream          PC Gaming
+──────────────    LAN    ──────────────────
+Viewer Merusuh  ──────►  Client Module
+Server :3000             :3002 (dashboard)
+                          ├── AHK adapter
+                          ├── vJoy adapter
+                          └── Plugin proxy
+```
+
+### Instalasi Client
 
 ```bash
-curl -X POST http://localhost:3000/api/test/donation \
-  -H "Content-Type: application/json" \
-  -d '{
-    "amount": 10000,
-    "donatorName": "Test Viewer",
-    "message": "merusuh!",
-    "platform": "test"
-  }'
+cd client
+npm install
+npm run setup   # buat .env dari template
+npm start
 ```
+
+Buka `http://localhost:3002` — dashboard 4-tab untuk mengatur koneksi, adapter, dan melihat log efek real-time.
+
+### Konfigurasi Client (`client/.env`)
+
+```env
+SERVER_URL=http://192.168.1.10:3000   # IP PC OBS / Stream
+CLIENT_SECRET=secret_yang_sama_dengan_server
+CLIENT_NAME=GamePC
+ADAPTER_AHK=true
+ADAPTER_VJOY=false
+ADAPTER_PLUGIN=false
+```
+
+### Auth di Server
+
+Tambahkan ke `server/index.js` dan `.env` server:
+
+```env
+# server/.env
+CLIENT_SECRET=rahasia_yang_panjang_dan_unik
+```
+
+```javascript
+// server/index.js
+io.use((socket, next) => {
+  const { secret, role } = socket.handshake.auth;
+  if (role === 'game-client') {
+    if (secret !== process.env.CLIENT_SECRET) return next(new Error('auth_error'));
+    socket.clientName = socket.handshake.auth.clientName || 'unknown';
+  }
+  next();
+});
+```
+
+Dokumentasi lengkap client: [`client/docs/readme.md`](client/docs/readme.md)
 
 ---
 
@@ -335,7 +499,6 @@ Base URL: `http://localhost:3000`
 | Method | Endpoint | Deskripsi |
 |--------|----------|-----------|
 | GET | `/api/effects` | Daftar semua efek |
-| GET | `/api/effects/:id` | Detail satu efek |
 | POST | `/api/effects` | Buat efek baru |
 | PUT | `/api/effects/:id` | Update efek |
 | DELETE | `/api/effects/:id` | Hapus efek |
@@ -345,227 +508,81 @@ Base URL: `http://localhost:3000`
 
 | Method | Endpoint | Deskripsi |
 |--------|----------|-----------|
-| GET | `/api/logs` | Log donasi (query: `?platform=saweria&limit=50`) |
+| GET | `/api/logs` | Log donasi (`?platform=saweria&limit=50`) |
 | GET | `/api/config` | Baca konfigurasi global |
 | PUT | `/api/config` | Update konfigurasi global |
 | GET | `/api/status` | Status server & statistik |
 
-### Development
+### Plugin Game
 
 | Method | Endpoint | Deskripsi |
 |--------|----------|-----------|
-| POST | `/api/test/donation` | Simulasi donasi (dev mode only) |
+| GET | `/api/plugin/pending` | Ambil efek antrian (polling dari game) |
+| POST | `/api/plugin/complete/:id` | Konfirmasi efek selesai |
+| GET | `/api/plugin/status` | Status server plugin |
 
-### Socket.io Events
+### Testing
 
-Client (dashboard/overlay) bisa subscribe ke event berikut:
+| Method | Endpoint | Deskripsi |
+|--------|----------|-----------|
+| POST | `/api/testing/donate` | Simulasi donasi |
+| POST | `/api/testing/trigger` | Direct trigger efek |
+
+### Socket.IO Events
 
 ```javascript
 const socket = io('http://localhost:3000')
 
-// Event: donasi masuk
-socket.on('donation', (data) => {
-  // { platform, donatorName, amount, message }
-})
-
-// Event: efek aktif
-socket.on('effect', (data) => {
-  // { id, name, actionKey, durationMs, donation: {...} }
-})
+socket.on('donation', (data) => { /* { platform, donatorName, amount, message } */ })
+socket.on('effect',   (data) => { /* { id, name, adapter, action, duration_ms, donation } */ })
 ```
+
+---
+
+## Build .exe
+
+```bash
+# Build installer + portable .exe sekaligus
+node build-electron.js
+
+# Output:
+# dist-electron/viewer-merusuh-setup-1.0.0.exe     ← installer
+# dist-electron/viewer-merusuh-1.0.0-portable.exe  ← portable
+```
+
+Panduan lengkap: [`docs/BUILD_ELECTRON.md`](docs/BUILD_ELECTRON.md)
 
 ---
 
 ## Roadmap
 
 - [x] **Phase 1** — Core server, donation adapters (Saweria & Trakteer), effect engine, OBS overlay
-- [x] **Phase 2** — Game adapters AutoHotkey (Racing, Action/GTA5, FPS, Survival) + sistem grup modular
+- [x] **Phase 2** — AutoHotkey adapter (Racing, Action/GTA5, FPS, Survival) + sistem grup modular
 - [x] **Phase 3** — Dashboard web React (manajemen efek, log donasi, konfigurasi, test donasi)
-- [x] **Phase 4** — vJoy/ViGEm virtual gamepad adapter (virtual Xbox 360 controller, 10 aksi racing)
+- [x] **Phase 4** — vJoy/ViGEm virtual gamepad adapter (Xbox 360 virtual, 10 aksi racing)
 - [x] **Phase 5** — Plugin native GTA 5 (23 efek via SHVDN C#) & BeamNG.drive (10 efek via Lua)
-- [x] **Phase 6** — Testing Area (simulasi donasi + direct trigger + preview efek) & Secrets Editor (UI untuk .env tanpa buka file)
-- [x] **Phase 7** — Installer Windows: SETUP.bat + Setup Wizard + Electron .exe installer (installer + portable)
+- [x] **Phase 6** — Testing Area + Secrets Editor (UI edit .env) + AHK presets & custom keys
+- [x] **Phase 7** — Electron .exe installer & portable + Setup Wizard + tray icon
+- [x] **Client Module** — Agent PC Gaming 2-PC: AHK + vJoy + Plugin proxy + Web Dashboard 4-tab
+
+**Yang sedang/akan dikerjakan:**
+- [ ] RC Module — kontrol RC fisik via donasi (Phase 1–2 selesai, Phase 3+ hardware)
+- [ ] Cooldown per efek yang berfungsi di effectEngine
+- [ ] Auto-update Electron via electron-updater
+- [ ] Statistik donasi (grafik per hari/minggu)
+- [ ] Adapter platform tambahan: Streamlabs, Ko-fi, TikTok Live
 
 ---
 
-## Build .exe untuk Developer
+## Menambah Adapter Platform Donasi Baru
 
-```bash
-# Build installer dan portable .exe sekaligus
-node build-electron.js
-
-# Output:
-# electron/dist-electron/viewer-merusuh-setup-1.0.0.exe    ← installer
-# electron/dist-electron/viewer-merusuh-1.0.0-portable.exe ← portable
-```
-
-Panduan lengkap: [`docs/BUILD_ELECTRON.md`](docs/BUILD_ELECTRON.md)
-
-## Dashboard Web
-
-Dashboard React untuk mengatur semua konfigurasi tanpa coding.
-
-### Menjalankan Dashboard (Development)
-
-```bash
-# Terminal 1 — jalankan server backend
-npm run dev
-
-# Terminal 2 — jalankan dashboard frontend
-npm run dev:dashboard
-# Buka http://localhost:5173
-```
-
-### Build untuk Production
-
-```bash
-npm run build
-# Dashboard ter-build ke dashboard/dist/
-# Otomatis di-serve oleh server di http://localhost:3000/dashboard
-```
-
-### Fitur Dashboard
-
-- **📊 Dashboard** — Stat card (efek aktif, total donasi, uptime) + live feed efek real-time + panel test donasi
-- **⚡ Manajemen Efek** — Tambah/edit/hapus efek, toggle aktif/nonaktif, filter per grup game
-- **📋 Log Donasi** — Riwayat semua donasi masuk dengan filter platform & pagination
-- **⚙️ Konfigurasi** — Copy webhook URL, setup OBS overlay, setting queue mode, path AutoHotkey
-
-
-
-### Prasyarat
-
-- [AutoHotkey v2](https://www.autohotkey.com/download/) terinstall di Windows
-- Set path AHK di `.env`:
-
-```env
-AHK_EXE_PATH=C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe
-```
-
-### Efek Bawaan per Grup
-
-**🏎️ Racing** — BeamNG.drive, NFS, Forza, GTA 5 racing
-
-| action_key | Efek | Default Key |
-|------------|------|-------------|
-| `brake_force` | Rem mendadak | Space |
-| `handbrake` | Rem tangan | X |
-| `full_throttle` | Gas penuh paksa | W |
-| `flip_car` | Balik mobil | - |
-| `slow_motion` | Slow motion | F9 |
-
-**💥 Action / Open World** — GTA 5, RDR2
-
-| action_key | Efek | Metode |
-|------------|------|--------|
-| `horn_spam` | Spam klakson | Key E |
-| `explosion_rain` | Hujan bom | Cheat HIGHEX |
-| `wanted_level_up` | +3 bintang wanted | Cheat FUGITIVE |
-| `ragdoll` | Karakter jatuh | Jump + Crouch |
-| `super_jump` | Super jump | Cheat HOPTOIT |
-| `chaos_mode` | Semua efek sekaligus | Multi-cheat |
-
-**🔫 FPS** — CS2, Valorant, COD
-
-| action_key | Efek | Metode |
-|------------|------|--------|
-| `no_ammo` | Paksa reload terus | Spam R |
-| `invert_mouse` | Kamera chaos | Mouse shake |
-| `random_weapon` | Ganti senjata acak | Random 1-9 |
-
-**🌲 Survival** — Minecraft, Rust, DayZ
-
-| action_key | Efek | Default Key |
-|------------|------|-------------|
-| `drop_item` | Drop item berulang | G |
-| `camera_shake` | Kamera goyang | Mouse chaos |
-
-### Plugin Native Game (Phase 5)
-
-Plugin yang berjalan **di dalam game** untuk kontrol yang lebih presisi dan mendalam dibanding keyboard inject.
-
-### Cara Kerja
-
-```
-Server VM ←── Plugin polling GET /api/plugin/pending?game=gta5
-           ──► Plugin eksekusi native API game
-           ──► Plugin lapor POST /api/plugin/done
-```
-
-### GTA 5 — ScriptHookV .NET (C#)
-
-23 efek native menggunakan SHVDN API: wanted level, ledakan, cuaca, kendaraan, NPC, dan lainnya.
-
-Instalasi: copy `plugins/gta5/ViewerMerusuh.cs` ke folder `Grand Theft Auto V/scripts/`
-Panduan lengkap: [`plugins/gta5/README.md`](plugins/gta5/README.md)
-
-> ⚠️ Hanya untuk Story Mode. Jangan digunakan di GTA Online.
-
-### BeamNG.drive — Lua Extension
-
-10 efek native menggunakan BeamNG Lua API: rem, gas, steer, slow motion, kerusakan acak, dan lainnya.
-
-Instalasi: copy folder `plugins/beamng/viewermerusuh/` ke `Documents/BeamNG.drive/mods/unpacked/`
-Panduan lengkap: [`plugins/beamng/README.md`](plugins/beamng/README.md)
-
-### Menambah di Dashboard
-
-Saat menambah efek baru, pilih:
-- **Adapter**: `Plugin Native (GTA5 / BeamNG)`
-- **Game Target**: `gta5` atau `beamng`
-- **Action Key**: pilih dari daftar action yang tersedia
-
-## vJoy / ViGEm Virtual Gamepad (Phase 4)
-
-Untuk racing game yang menggunakan controller (bukan keyboard), Viewer Merusuh bisa mengendalikan axis dan tombol controller secara programatik via **ViGEmBus** — driver virtual controller resmi dari Nefarius.
-
-### Prasyarat
-
-1. Install [ViGEmBus driver](https://github.com/nefarius/ViGEmBus/releases) → restart PC
-2. `npm install` (vigemclient sudah di package.json)
-
-Jika berhasil, log server menampilkan:
-```
-🎮 [vJoy] ViGEmBus terhubung — virtual Xbox 360 controller aktif
-```
-
-### Aksi yang tersedia (adapter: `vjoy`)
-
-| action_key | Efek | Input Controller |
-|------------|------|-----------------|
-| `vjoy_brake` | Rem penuh | Left Trigger 100% |
-| `vjoy_throttle` | Gas penuh | Right Trigger 100% |
-| `vjoy_steer_left` | Steer kiri penuh | Left Stick ← max |
-| `vjoy_steer_right` | Steer kanan penuh | Left Stick → max |
-| `vjoy_random_steer` | Steer acak chaos | Left Stick oscillate |
-| `vjoy_handbrake` | Handbrake | Button X |
-| `vjoy_drift_chaos` | Gas + steer chaos | RT 100% + oscillate |
-| `vjoy_reverse` | Mundur paksa | LT 100% + stick down |
-| `vjoy_rumble` | Getarkan controller | Steer chaos ringan |
-| `vjoy_disconnect` | Cabut-colok controller | Disconnect/reconnect |
-
-Panduan lengkap: [`docs/VJOY_GUIDE.md`](docs/VJOY_GUIDE.md)
-
-## Menambah Game Baru
-
-Lihat panduan lengkap di [`docs/ADDING_GAMES.md`](docs/ADDING_GAMES.md).
-
-Singkatnya:
-1. Buat script AHK di `adapters/ahk/games/[grup]/[efek].ahk`
-2. Daftar `action_key` di `server/adapters/ahk.js` → `ACTION_REGISTRY`
-3. Tambah efek ke DB via `POST /api/effects`
-
-
-
-Buat file baru di `server/adapters/nama_platform.js`:
+Buat file `server/adapters/nama_platform.js`:
 
 ```javascript
 const eventBus = require('../core/eventBus')
 
 function namaWebhookHandler(req, res) {
   const body = req.body
-
-  // Parse payload sesuai format platform
   const donation = {
     platform:    'nama_platform',
     donatorName: body.nama_donatur,
@@ -573,7 +590,6 @@ function namaWebhookHandler(req, res) {
     message:     body.pesan || '',
     rawPayload:  body,
   }
-
   eventBus.emit('donation', donation)
   return res.json({ status: 'ok' })
 }
@@ -581,7 +597,7 @@ function namaWebhookHandler(req, res) {
 module.exports = { namaWebhookHandler }
 ```
 
-Kemudian daftarkan di `server/index.js`:
+Daftarkan di `server/index.js`:
 
 ```javascript
 const { namaWebhookHandler } = require('./adapters/nama_platform')
@@ -592,17 +608,14 @@ app.post('/webhook/nama_platform', namaWebhookHandler)
 
 ## Kontribusi
 
-Pull request sangat disambut! Beberapa area yang butuh kontribusi:
+Pull request sangat disambut! Area yang butuh kontribusi:
 
-1. **Adapter platform** — Ko-fi, Donorbox, StreamElements, Streamlabs
-2. **Game adapter** — script AutoHotkey untuk game populer
-3. **Dashboard React** — UI untuk manajemen efek
-4. **Dokumentasi** — tutorial setup per game
-
-Cara berkontribusi:
+1. **Adapter platform** — Ko-fi, Donorbox, StreamElements, Streamlabs, TikTok Live
+2. **Script AHK** — efek untuk game populer yang belum ada
+3. **Dokumentasi** — tutorial setup per game
+4. **Bug fix** — lihat [Issues](https://github.com/noobiiefun/Viewer-Merusuh/issues)
 
 ```bash
-# Fork repo, lalu:
 git checkout -b fitur/nama-fitur
 git commit -m "feat: deskripsi singkat perubahan"
 git push origin fitur/nama-fitur
