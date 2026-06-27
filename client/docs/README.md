@@ -17,6 +17,8 @@
 9. [Integrasi dengan Server](#9-integrasi-dengan-server)
 10. [FAQ & Troubleshooting](#10-faq--troubleshooting)
 
+> **Status:** ✅ Semua fase selesai (Phase 1–5) — siap digunakan
+
 ---
 
 ## 1. Konsep & Arsitektur
@@ -234,7 +236,7 @@ client/
 │   ├── index.js                  # Entry point utama
 │   │
 │   ├── core/
-│   │   ├── connection.js         # Koneksi Socket.IO ke server
+│   │   ├── connection.js         # Koneksi Socket.IO ke server + emit conn:status
 │   │   ├── adapterManager.js     # Router efek ke adapter
 │   │   ├── dashboard.js          # Web dashboard HTTP server + SSE
 │   │   ├── discovery.js          # LAN auto-discovery (UDP broadcast)
@@ -248,6 +250,9 @@ client/
 │   └── utils/
 │       ├── logger.js            # Logger dengan color-coding
 │       └── config.js            # Config loader + validator
+│
+├── dashboard/
+│   └── connection.html          # Halaman utama dashboard (4 tab UI)
 │
 ├── adapters/
 │   └── ahk/                     # Folder script AHK
@@ -269,7 +274,6 @@ client/
 │   ├── test-vjoy.js             # CLI test adapter vJoy
 │   └── test-plugin.js           # CLI test adapter plugin
 │
-├── docs/                        # (folder ini bisa dihapus)
 ├── .env                         # Config (jangan di-commit!)
 ├── .env.example                 # Template config
 ├── .gitignore
@@ -510,13 +514,28 @@ node scripts/test-plugin.js clear                         # kosongkan queue
 
 Dashboard web aktif secara default di `http://localhost:3002` setelah `npm start`.
 
-**Fitur:**
-- Status koneksi real-time (connected / disconnected / reconnecting)
-- Log efek masuk real-time lengkap dengan nama donor + nominal
-- Toggle adapter on/off tanpa restart
-- Scan server di LAN (UDP auto-discovery)
-- Console log client langsung di browser
-- Statistik efek diterima + uptime koneksi
+Dashboard terdiri dari **4 tab** dalam satu halaman `dashboard/connection.html`:
+
+### Tab 1 — Koneksi (halaman utama)
+
+- **Status bar real-time** — Online / Offline / Reconnecting, uptime timer, jumlah efek diterima, jumlah reconnect
+- **Diagram koneksi** — visual `PC Gaming ─── Socket.IO ─── PC Server` dengan animasi garis hidup saat connected
+- **Form konfigurasi** — isi `SERVER_URL`, `CLIENT_SECRET`, `CLIENT_NAME`, Log Level → tombol **Simpan & Connect** langsung patch `.env` dan auto-reconnect tanpa restart
+- **Scan LAN** — tombol broadcast UDP, hasil tampil sebagai daftar server yang bisa langsung diklik "Gunakan"
+- **Test Koneksi** — Ping server, buka di browser, copy perintah `ipconfig`
+
+### Tab 2 — Adapter
+
+- Toggle AHK / vJoy / Plugin on/off tanpa restart
+- Statistik jumlah efek yang dieksekusi per adapter
+
+### Tab 3 — Log Efek
+
+- Feed real-time efek masuk: nama efek, adapter, nama donor, nominal, durasi
+
+### Tab 4 — Console
+
+- Log client real-time via SSE, sama dengan output terminal
 
 **Konfigurasi:**
 ```env
@@ -526,11 +545,29 @@ DASHBOARD_PORT=3002      # ganti jika port konflik
 
 **API Dashboard** (digunakan UI secara internal):
 ```
-GET  /api/events         ← SSE stream real-time
-GET  /api/state          ← Snapshot state (load awal)
-GET  /api/discover       ← Trigger LAN scan
-POST /api/set-server     ← Simpan SERVER_URL baru ke .env
-POST /api/adapter/:name  ← Toggle adapter { enabled: true/false }
+GET  /api/events            ← SSE stream real-time (conn:status, log, effect)
+GET  /api/state             ← Snapshot state lengkap (koneksi + config + adapter)
+GET  /api/discover          ← Trigger UDP LAN scan
+POST /api/set-server        ← Simpan SERVER_URL + CLIENT_SECRET + CLIENT_NAME + LOG_LEVEL ke .env → auto-reconnect
+POST /api/adapter/:name     ← Toggle adapter { enabled: true/false }
+POST /api/reconnect         ← Paksa reconnect ke server
+POST /api/disconnect        ← Putuskan koneksi
+GET  /api/ping?url=...      ← Proxy ping ke server (hindari CORS)
+```
+
+### SSE Event `conn:status`
+
+`connection.js` mengirim event ini ke dashboard setiap kali status berubah:
+
+```json
+{
+  "connected": true,
+  "socketId": "abc123",
+  "reconnects": 2,
+  "effectCount": 17,
+  "connectedAt": 1720000000000,
+  "serverUrl": "http://192.168.1.10:3000"
+}
 ```
 
 ### Auto-Discovery LAN
@@ -732,5 +769,5 @@ Ya:
 
 ---
 
-*Viewer Merusuh Client v0.5.0 — Semua step selesai*
+*Viewer Merusuh Client v1.0.0 — Semua fase selesai (Phase 1–5)*
 *Terakhir diperbarui: 2025*

@@ -37,7 +37,7 @@ Ekosistem Viewer Merusuh terdiri dari **tiga komponen utama:**
 | Komponen | Deskripsi | Status |
 |----------|-----------|--------|
 | **Server / Electron App** | Core engine — menerima donasi, trigger efek game | Aktif (ada bug) |
-| **Client Module** | Agent di PC Gaming terpisah — eksekusi efek AHK/vJoy | Phase 1–2 |
+| **Client Module** | Agent di PC Gaming terpisah — eksekusi efek AHK/vJoy + Web Dashboard | ✅ Selesai (Phase 1–5) |
 | **RC Module** | Server kontrol RC fisik — viewer sewa RC via donasi | Phase 1–2 |
 
 ### Alur Utama (Core)
@@ -268,15 +268,20 @@ viewer-merusuh/                      # Root monorepo
 │   ├── src/
 │   │   ├── index.js                 # Entry point — connect ke server
 │   │   ├── core/
-│   │   │   ├── connection.js        # Socket.IO ke server + auto-reconnect
-│   │   │   └── adapterManager.js    # Router efek ke adapter
+│   │   │   ├── connection.js        # Socket.IO ke server + emit conn:status ✅
+│   │   │   ├── adapterManager.js    # Router efek ke adapter ✅
+│   │   │   ├── dashboard.js         # Web dashboard HTTP server + SSE ✅
+│   │   │   ├── discovery.js         # UDP LAN auto-discovery ✅
+│   │   │   └── eventBus.js          # Event emitter internal ✅
 │   │   ├── adapters/
-│   │   │   ├── ahk.js               # AHK adapter (Step 1 ✅)
-│   │   │   ├── vjoy.js              # vJoy adapter (Step 3 🔜)
-│   │   │   └── plugin.js            # Plugin proxy (Step 4 🔜)
+│   │   │   ├── ahk.js               # AHK adapter ✅
+│   │   │   ├── vjoy.js              # vJoy/ViGEmBus adapter ✅
+│   │   │   └── plugin.js            # Plugin proxy HTTP lokal ✅
 │   │   └── utils/
 │   │       ├── logger.js
 │   │       └── config.js
+│   ├── dashboard/
+│   │   └── connection.html          # Halaman dashboard 4-tab ✅
 │   ├── adapters/
 │   │   └── ahk/                     # Salin dari root adapters/ahk/
 │   ├── .env.example
@@ -718,7 +723,7 @@ Urutan:
 ## 11. Client Module — PC Gaming Terpisah
 
 > **Lokasi:** `client/`
-> **Status:** Step 1 ✅ — koneksi Socket.IO + AHK adapter dasar
+> **Status:** ✅ Selesai — Phase 1–5 lengkap
 
 ### Masalah yang Dipecahkan
 
@@ -729,15 +734,17 @@ Banyak streamer menggunakan setup **2 PC**: PC Stream/OBS menjalankan server Vie
 ```
 Server (PC Stream) — emit event 'effect' via Socket.IO
     ↓
-client/src/core/connection.js — menerima event
+client/src/core/connection.js — menerima event + emit conn:status ke eventBus
     ↓
 client/src/core/adapterManager.js — routing berdasarkan payload.adapter
     ↓
-  adapter: 'ahk'  → client/src/adapters/ahk.js → spawn AHK script
-  adapter: 'vjoy' → client/src/adapters/vjoy.js → ViGEmBus
+  adapter: 'ahk'    → client/src/adapters/ahk.js    → spawn AHK script
+  adapter: 'vjoy'   → client/src/adapters/vjoy.js   → ViGEmBus
   adapter: 'plugin' → client/src/adapters/plugin.js → HTTP proxy lokal
     ↓
 Efek berjalan di game di PC Gaming
+    ↓
+client/src/core/dashboard.js — Web UI di port 3002 (SSE real-time ke browser)
 ```
 
 ### Cara Kerja Internal
@@ -748,13 +755,17 @@ Mengelola koneksi Socket.IO ke server:
 - **Auto-reconnect** — exponential backoff (1s → max 30s)
 - **Auth payload** — kirim `clientSecret` dan `clientName` saat handshake
 - Forward event `effect` ke adapterManager
+- **Emit `conn:status`** setiap ada perubahan state → diteruskan ke dashboard via SSE
 
 ```javascript
 // Event yang didengarkan:
-socket.on('connect', ...)
-socket.on('disconnect', ...)
-socket.on('effect', payload => adapterManager.execute(payload))
+socket.on('connect',    () => eventBus.emit('conn:status', { connected: true, ... }))
+socket.on('disconnect', () => eventBus.emit('conn:status', { connected: false, ... }))
+socket.on('effect',     payload => adapterManager.execute(payload))
 socket.on('auth_error', ...)
+
+// Export untuk dashboard:
+module.exports = { connect, reconnect, disconnect, getState }
 ```
 
 **`adapterManager.js`**
@@ -762,10 +773,32 @@ socket.on('auth_error', ...)
 Router yang mendaftarkan adapter dan meneruskan efek berdasarkan `payload.adapter`:
 
 ```javascript
-manager.register('ahk', ahkAdapter);
-manager.register('vjoy', vjoyAdapter);
+manager.register('ahk',    ahkAdapter);
+manager.register('vjoy',   vjoyAdapter);
+manager.register('plugin', pluginAdapter);
 manager.execute({ adapter: 'ahk', action: 'brake_force', params: {} });
 ```
+
+**`dashboard.js`**
+
+HTTP server Express di port `DASHBOARD_PORT` (default: 3002). Serve `dashboard/connection.html` dan 8 API endpoint. Meneruskan event dari `eventBus` ke browser via SSE.
+
+```javascript
+// Route yang tersedia:
+GET  /                      ← serve dashboard/connection.html
+GET  /api/events            ← SSE stream (conn:status, log, effect)
+GET  /api/state             ← snapshot state + config untuk inisialisasi UI
+GET  /api/discover          ← trigger UDP LAN scan
+POST /api/set-server        ← patch .env (serverUrl+secret+name+logLevel) → auto-reconnect
+POST /api/adapter/:name     ← toggle adapter enabled/disabled
+POST /api/reconnect         ← paksa reconnect
+POST /api/disconnect        ← putuskan koneksi
+GET  /api/ping?url=...      ← proxy ping ke server (hindari CORS dari browser)
+```
+
+**`discovery.js`**
+
+UDP broadcast ke subnet port 47777. Server yang aktif menjawab dengan JSON berisi URL-nya.
 
 ### Payload Efek (dari server)
 
@@ -784,6 +817,34 @@ manager.execute({ adapter: 'ahk', action: 'brake_force', params: {} });
   }
 }
 ```
+
+### SSE Event `conn:status`
+
+Dikirim `connection.js` → `eventBus` → `dashboard.js` → browser setiap kali state berubah:
+
+```json
+{
+  "connected": true,
+  "socketId": "abc123",
+  "reconnects": 2,
+  "effectCount": 17,
+  "connectedAt": 1720000000000,
+  "serverUrl": "http://192.168.1.10:3000"
+}
+```
+
+### Web Dashboard (4 Tab)
+
+Buka `http://localhost:3002` setelah `npm start`.
+
+| Tab | Isi |
+|-----|-----|
+| **Koneksi** | Status bar, diagram koneksi animasi, form SERVER_URL/SECRET/NAME/LOG_LEVEL, Scan LAN, Ping |
+| **Adapter** | Toggle AHK/vJoy/Plugin on-off, statistik eksekusi per adapter |
+| **Log Efek** | Feed real-time efek masuk: nama, adapter, donor, nominal, durasi |
+| **Console** | Log client real-time via SSE |
+
+Perubahan konfigurasi di Tab Koneksi (Simpan & Connect) langsung patch `.env` dan auto-reconnect — **tidak perlu restart** client.
 
 ### Konfigurasi Client (`.env`)
 
@@ -806,6 +867,21 @@ ADAPTER_PLUGIN=false
 
 # Path AutoHotkey v2
 AHK_EXE_PATH=C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe
+
+# vJoy config
+VJOY_CONTROLLER_TYPE=DS4
+
+# Plugin adapter config
+PLUGIN_LOCAL_PORT=3001
+PLUGIN_TOKEN=
+PLUGIN_EFFECT_TTL=30000
+
+# Dashboard
+DASHBOARD_ENABLED=true
+DASHBOARD_PORT=3002
+
+# Logging
+LOG_LEVEL=info
 ```
 
 ### Menambah Auth di Server untuk Client
@@ -844,23 +920,23 @@ Resolusi path script AHK:
 
 > **Tips:** Salin folder `adapters/ahk/` dari PC Server ke PC Client agar semua script sama.
 
-**vJoy Adapter (`adapter: "vjoy"`)** — *Step 3 🔜*
+**vJoy Adapter (`adapter: "vjoy"`)** ✅
 
-Dependency: `npm install vigemclient`
+Dependency: `npm install vigemclient`. Jika ViGEmBus tidak terinstall, berjalan dalam simulasi mode (log only).
 
-**Plugin Proxy Adapter (`adapter: "plugin"`)** — *Step 4 🔜*
+**Plugin Proxy Adapter (`adapter: "plugin"`)** ✅
 
-Membuka HTTP server lokal di `PLUGIN_LOCAL_PORT` (default: 3001) sehingga game plugin bisa polling efek langsung dari PC Gaming tanpa melalui jaringan ke PC Server.
+HTTP server lokal di `PLUGIN_LOCAL_PORT` (default: 3001). Game plugin polling endpoint ini secara lokal di PC Gaming tanpa perlu akses jaringan ke PC Server.
 
-### Roadmap Client
+### Status Phase
 
-| Step | Fitur | Status |
-|------|-------|--------|
-| Step 1 | Scaffold, koneksi Socket.IO, AHK adapter dasar | ✅ Done |
-| Step 2 | AHK adapter lengkap + sinkronisasi folder script dari server | 🔜 |
-| Step 3 | vJoy / ViGEmBus adapter | 🔜 |
-| Step 4 | Plugin adapter (HTTP proxy lokal untuk GTA5/BeamNG polling) | 🔜 |
-| Step 5 | Config UI web lokal + auto-discovery server di LAN | 🔜 |
+| Phase | Fitur | Status |
+|-------|-------|--------|
+| Phase 1 | Scaffold, koneksi Socket.IO, AHK adapter dasar | ✅ Done |
+| Phase 2 | AHK adapter lengkap + sinkronisasi script dari server | ✅ Done |
+| Phase 3 | vJoy / ViGEmBus adapter | ✅ Done |
+| Phase 4 | Plugin proxy adapter (HTTP lokal untuk GTA5/BeamNG) | ✅ Done |
+| Phase 5 | Web Dashboard (4 tab) + Connection Menu + LAN Discovery | ✅ Done |
 
 ### Menjalankan Client
 
@@ -869,6 +945,7 @@ cd client
 npm install
 npm run setup   # buat .env dari template
 # Edit .env: isi SERVER_URL dan CLIENT_SECRET
+# Atau buka http://localhost:3002 dan isi via UI setelah npm start
 npm start
 ```
 
@@ -876,9 +953,11 @@ npm start
 
 | Masalah | Solusi |
 |---------|--------|
-| Tidak bisa konek ke server | Pastikan `SERVER_URL` pakai IP, bukan `localhost`. Cek firewall PC Server: `netsh advfirewall firewall add rule name="VM" dir=in action=allow protocol=TCP localport=3000` |
+| Tidak bisa konek ke server | Pastikan `SERVER_URL` pakai IP, bukan `localhost`. Cek firewall: `netsh advfirewall firewall add rule name="VM" dir=in action=allow protocol=TCP localport=3000` |
 | AHK tidak jalan, tidak ada error | Verifikasi `AHK_EXE_PATH` ke AutoHotkey64.exe v2. Set `LOG_LEVEL=debug` untuk lihat path script yang dicoba |
 | `CLIENT_SECRET` berbeda | Generate ulang: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` — salin ke `.env` server **dan** client |
+| Dashboard tidak bisa dibuka | Cek log ada pesan `[Dashboard] aktif → http://localhost:3002`. Port 3002 mungkin konflik → ganti `DASHBOARD_PORT` di `.env` |
+| Scan LAN tidak menemukan server | Firewall PC Server harus izinkan UDP 47777. Server harus jalankan UDP listener (lihat Bab 9 Integrasi) |
 
 ---
 
@@ -1579,12 +1658,22 @@ Jika masih error, butuh Visual C++ Build Tools untuk compile native module.
 - **Webhook outgoing** — notifikasi ke Discord/Telegram saat ada donasi
 - **Multi-streamer mode** — satu server untuk beberapa streamer dengan room terpisah
 
-### Client Module — Next Steps
+### Client Module — Status
 
-- **Step 2:** AHK adapter lengkap + tool sinkronisasi script dari server via HTTP
-- **Step 3:** vJoy / ViGEmBus adapter (`npm install vigemclient`)
-- **Step 4:** Plugin proxy adapter — HTTP server lokal untuk polling dari game
-- **Step 5:** Web UI lokal (status koneksi, log efek, toggle adapter, auto-discovery LAN)
+Client Module sudah selesai sepenuhnya (Phase 1–5). Tidak ada next step yang pending.
+
+| Phase | Fitur | Status |
+|-------|-------|--------|
+| Phase 1 | Scaffold, Socket.IO, AHK adapter dasar | ✅ Done |
+| Phase 2 | AHK adapter lengkap + sinkronisasi script | ✅ Done |
+| Phase 3 | vJoy / ViGEmBus adapter | ✅ Done |
+| Phase 4 | Plugin proxy adapter (HTTP lokal) | ✅ Done |
+| Phase 5 | Web Dashboard 4-tab + Connection Menu + LAN Discovery | ✅ Done |
+
+Pengembangan lanjutan yang mungkin dilakukan:
+- **Packaging Electron** — bungkus client sebagai app desktop agar mudah didistribusikan ke streamer (tidak perlu install Node.js)
+- **Script sync otomatis** — unduh folder `adapters/ahk/` dari server via HTTP tanpa perlu copy manual
+- **Notifikasi tray Windows** — tray icon di system tray saat client jalan di background
 
 ### RC Module — Next Steps
 
@@ -1654,5 +1743,5 @@ Jika masih error, butuh Visual C++ Build Tools untuk compile native module.
 
 ---
 
-*Dokumentasi ini terakhir diperbarui: v0.2.0 — mencakup Client Module (Phase 1) dan RC Module (Phase 1–2)*
+*Dokumentasi ini terakhir diperbarui: v1.0.0 — mencakup Client Module (Phase 1–5 selesai) dan RC Module (Phase 1–2)*
 *GitHub: https://github.com/noobiiefun/Viewer-Merusuh*
