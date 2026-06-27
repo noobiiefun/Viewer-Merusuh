@@ -13,7 +13,7 @@
 ══════════════════════════════════════════════════════════════ -->
 <aside class="sidebar">
   <div class="sidebar-logo">
-    <span class="logo-icon">🎮</span>
+    <span class="logo-icon">👾</span>
     <div class="logo-text">
       <div class="logo-title">Avatar Overlay</div>
       <div class="logo-sub">Viewer Merusuh</div>
@@ -29,20 +29,25 @@
   <!-- Nav -->
   <nav class="sidebar-nav">
     <button class="nav-item active" data-tab="polling">
-      <span class="nav-icon">📡</span> Polling
+      <span class="nav-icon">📡</span>
+      <span>Polling Control</span>
     </button>
     <button class="nav-item" data-tab="viewers">
-      <span class="nav-icon">👥</span> Viewers
+      <span class="nav-icon">👥</span>
+      <span>Viewer Manager</span>
       <span id="badge-viewers" class="nav-badge">0</span>
     </button>
     <button class="nav-item" data-tab="tiers">
-      <span class="nav-icon">⭐</span> Tier Manager
+      <span class="nav-icon">⭐</span>
+      <span>Tier Manager</span>
     </button>
     <button class="nav-item" data-tab="avatars">
-      <span class="nav-icon">🎭</span> Avatar Manager
+      <span class="nav-icon">🎭</span>
+      <span>Avatar Manager</span>
     </button>
     <button class="nav-item" data-tab="events">
-      <span class="nav-icon">📝</span> Input Event
+      <span class="nav-icon">💰</span>
+      <span>Input Event Manual</span>
     </button>
   </nav>
 
@@ -69,6 +74,7 @@
   <div class="sidebar-footer">
     <a href="/overlay" target="_blank" class="sidebar-link">🖥 Buka Overlay</a>
     <a href="/pick"    target="_blank" class="sidebar-link">🪞 Halaman Pick</a>
+    <div class="server-url">localhost:3500</div>
   </div>
 </aside>
 
@@ -80,17 +86,23 @@
   <!-- ── TAB 1: POLLING ──────────────────────────────────── -->
   <section id="tab-polling" class="tab-panel active">
     <div class="panel-header">
-      <h2 class="panel-title">📡 Polling YouTube Live Chat</h2>
-      <p class="panel-desc">Hubungkan ke live stream YouTube untuk membaca chat viewer secara real-time.</p>
+      <h2 class="panel-title">📡 Polling Control</h2>
+      <p class="panel-desc">Hubungkan ke YouTube Live Chat dan pantau aktivitas real-time.</p>
     </div>
 
-    <!-- Status bar -->
+    <!-- Status indicator -->
     <div class="poll-status-bar">
-      <span class="ind-dot off"></span>
-      <span id="poll-status-text" class="poll-status-text">Tidak Aktif</span>
+      <div class="big-indicator" id="poll-indicator">
+        <span class="ind-dot off"></span>
+        <span id="poll-status-text" class="poll-status-text">Tidak Aktif</span>
+      </div>
+      <div id="poll-meta" class="poll-meta" style="display:none">
+        <span class="chip chip-info">📊 <span id="poll-stats">0 diterima · 0 diteruskan</span></span>
+        <span class="chip">Video ID: <code id="poll-video-label">—</code></span>
+      </div>
     </div>
 
-    <!-- Form input Video ID (muncul saat tidak polling) -->
+    <!-- Form input Video ID (tampil saat tidak polling) -->
     <div id="poll-form" class="card">
       <div class="card-body">
         <label class="form-label">YouTube Video ID atau URL Live Stream</label>
@@ -99,7 +111,7 @@
             id="input-video-id"
             class="input"
             type="text"
-            placeholder="contoh: dQw4w9WgXcQ atau https://youtube.com/watch?v=..."
+            placeholder="contoh: dQw4w9WgXcQ atau https://youtube.com/watch?v=…"
           />
           <button id="btn-start-poll" class="btn btn-primary">▶ Mulai</button>
         </div>
@@ -109,22 +121,16 @@
       </div>
     </div>
 
-    <!-- Active polling info (muncul saat sedang polling) -->
+    <!-- Active polling actions (tampil saat sedang polling) -->
     <div id="poll-active-actions" class="card" style="display:none">
       <div class="card-body">
         <div class="poll-active-row">
           <div>
             <div class="form-label">Video yang sedang dipantau</div>
-            <code id="poll-video-label" class="code-chip">—</code>
           </div>
           <button id="btn-stop-poll" class="btn btn-danger">⏹ Stop Polling</button>
         </div>
       </div>
-    </div>
-
-    <!-- Stats polling -->
-    <div id="poll-meta" class="chip-row" style="display:none">
-      <span class="chip chip-info">📊 <span id="poll-stats">0 diterima · 0 diteruskan</span></span>
     </div>
 
     <!-- Chat log real-time -->
@@ -137,7 +143,7 @@
         </div>
       </div>
       <div id="chat-log-box" class="log-box">
-        <div class="log-empty">Menunggu pesan masuk…</div>
+        <div class="log-empty">Polling belum aktif. Start polling untuk melihat chat masuk.</div>
       </div>
     </div>
   </section>
@@ -145,7 +151,7 @@
   <!-- ── TAB 2: VIEWERS ──────────────────────────────────── -->
   <section id="tab-viewers" class="tab-panel">
     <div class="panel-header">
-      <h2 class="panel-title">👥 Manajemen Viewer</h2>
+      <h2 class="panel-title">👥 Viewer Manager</h2>
       <p class="panel-desc">Daftar semua viewer yang punya hak avatar, beserta tier dan statistik mereka.</p>
     </div>
 
@@ -158,7 +164,7 @@
     </div>
 
     <div class="table-wrap">
-      <table class="table">
+      <table class="table" id="viewers-table">
         <thead>
           <tr>
             <th>Nama YouTube</th>
@@ -219,7 +225,7 @@
   <!-- ── TAB 5: INPUT EVENT ─────────────────────────────── -->
   <section id="tab-events" class="tab-panel">
     <div class="panel-header">
-      <h2 class="panel-title">📝 Input Event Manual</h2>
+      <h2 class="panel-title">💰 Input Event Manual</h2>
       <p class="panel-desc">Input donasi atau sesi RC secara manual sebelum integrasi otomatis tersedia.</p>
     </div>
 
@@ -228,28 +234,31 @@
       <!-- Form Donasi -->
       <div class="card">
         <div class="card-header">
-          <span class="card-title">💵 Input Donasi</span>
+          <span class="card-title">💵 Input Donasi Manual</span>
         </div>
         <div class="card-body form-stack">
           <div class="form-group">
             <label class="form-label">Nama YouTube Channel <span class="required">*</span></label>
-            <input id="don-name" class="input" type="text" placeholder="contoh: Clonze" />
+            <input id="don-name" class="input" type="text" placeholder="Nama persis seperti yang tampil di chat" />
           </div>
-          <div class="form-group">
-            <label class="form-label">Nominal (Rupiah) <span class="required">*</span></label>
-            <input id="don-amount" class="input" type="number" min="1" placeholder="contoh: 50000" />
-          </div>
-          <div class="form-group">
-            <label class="form-label">Platform</label>
-            <select id="don-platform" class="select">
-              <option value="saweria">Saweria</option>
-              <option value="trakteer">Trakteer</option>
-              <option value="manual">Manual</option>
-            </select>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Nominal (Rupiah) <span class="required">*</span></label>
+              <input id="don-amount" class="input" type="number" min="1" placeholder="contoh: 50000" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Platform</label>
+              <select id="don-platform" class="select">
+                <option value="saweria">Saweria</option>
+                <option value="trakteer">Trakteer</option>
+                <option value="sociabuzz">SociaBuzz</option>
+                <option value="manual">Manual</option>
+              </select>
+            </div>
           </div>
           <div class="form-group">
             <label class="form-label">Catatan (opsional)</label>
-            <input id="don-note" class="input" type="text" placeholder="contoh: donasi pertama" />
+            <input id="don-note" class="input" type="text" placeholder="contoh: donasi ulang tahun" />
           </div>
           <p id="don-feedback" class="form-feedback"></p>
           <button id="btn-submit-donation" class="btn btn-primary">Simpan Donasi</button>
@@ -259,20 +268,22 @@
       <!-- Form RC Session -->
       <div class="card">
         <div class="card-header">
-          <span class="card-title">🎮 Input Sesi RC</span>
+          <span class="card-title">🎮 Input Sesi RC Manual</span>
         </div>
         <div class="card-body form-stack">
           <div class="form-group">
             <label class="form-label">Nama YouTube Channel <span class="required">*</span></label>
-            <input id="rc-name" class="input" type="text" placeholder="contoh: Clonze" />
+            <input id="rc-name" class="input" type="text" placeholder="Nama persis seperti yang tampil di chat" />
           </div>
-          <div class="form-group">
-            <label class="form-label">RC ID <span class="required">*</span></label>
-            <input id="rc-id" class="input" type="text" placeholder="contoh: rc_unit_1" />
-          </div>
-          <div class="form-group">
-            <label class="form-label">Durasi (detik)</label>
-            <input id="rc-duration" class="input" type="number" min="0" placeholder="contoh: 120" />
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">RC ID <span class="required">*</span></label>
+              <input id="rc-id" class="input" type="text" placeholder="contoh: rc_unit_1" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Durasi (detik)</label>
+              <input id="rc-duration" class="input" type="number" min="0" placeholder="contoh: 300" />
+            </div>
           </div>
           <div class="form-group">
             <label class="form-label">Session ID (opsional — diisi otomatis jika kosong)</label>
@@ -285,14 +296,14 @@
 
     </div>
 
-    <!-- Log event donor -->
+    <!-- Log event terbaru -->
     <div class="card" style="margin-top:24px">
       <div class="card-header">
         <span class="card-title">📋 Riwayat Event</span>
         <button id="btn-refresh-log" class="btn btn-ghost btn-sm">↻ Refresh</button>
       </div>
       <div id="event-log-box" class="log-box">
-        <div class="log-empty">Memuat riwayat…</div>
+        <div class="log-empty">Belum ada event tercatat.</div>
       </div>
     </div>
   </section>
@@ -376,7 +387,7 @@
 
       <div class="form-row">
         <div class="form-group">
-          <label class="form-label">Warna Tier</label>
+          <label class="form-label">Warna Badge</label>
           <div class="color-input-row">
             <input id="tier-color-picker" type="color" value="#7c3aed" class="color-picker" />
             <input id="tier-color-input"  type="text"  value="#7c3aed" class="input input-sm" placeholder="#rrggbb" maxlength="7" />
@@ -389,7 +400,7 @@
         </div>
       </div>
 
-      <div class="form-divider">Syarat Mendapat Tier (salah satu terpenuhi = eligible)</div>
+      <div class="form-divider">Syarat Mendapat Tier — cukup salah satu terpenuhi</div>
 
       <div class="form-row">
         <div class="form-group">
@@ -465,7 +476,7 @@
           <input id="edit-avatar-height" class="input" type="number" min="1" value="48" />
         </div>
       </div>
-      <p class="form-hint">Sprite sheet: semua frame horizontal dalam 1 file PNG. Lebar total = frame × lebar_frame.</p>
+      <p class="form-hint">Sprite sheet: semua frame horizontal dalam 1 file PNG. Lebar total = jumlah frame × lebar frame.</p>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" data-close="modal-edit-avatar">Batal</button>
