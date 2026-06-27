@@ -1,85 +1,156 @@
 'use strict';
 
 /**
- * connection.js
- * Koneksi Socket.IO ke server dengan:
- *   - Auto-reconnect (exponential backoff)
- *   - Auth handshake (clientSecret + clientName)
- *   - Emit event ke dashboard via eventBus
+ * connection.js — v0.5.1 (patch: emit conn:status lengkap ke eventBus)
+ *
+ * Perubahan dari v0.5.0:
+ *  - Emit conn:status ke eventBus dengan field: socketId, reconnects, effectCount, connectedAt
+ *  - Export getState() untuk /api/state di dashboard
+ *  - Export reconnect() untuk /api/reconnect di dashboard
  */
 
-const { io }   = require('socket.io-client');
-const logger   = require('../utils/logger');
-const bus      = require('./eventBus');
+const { io }    = require('socket.io-client');
+const logger    = require('../utils/logger');
+const config    = require('../utils/config');
+const adapterManager = require('./adapterManager');
+const eventBus  = require('./eventBus');
 
-let socket = null;
+let socket      = null;
+let reconnectN  = 0;
+let effectCount = 0;
+let connectedAt = null;
 
-function start(adapterManager) {
-  const SERVER_URL    = process.env.SERVER_URL    || 'http://localhost:3000';
-  const CLIENT_SECRET = process.env.CLIENT_SECRET || '';
-  const CLIENT_NAME   = process.env.CLIENT_NAME   || 'GamePC';
+// ─── Emit status ke eventBus (→ SSE dashboard) ────────────────────────────
 
-  logger.info(`[Connection] Menghubungkan ke ${SERVER_URL} ...`);
+function emitStatus(extra = {}) {
+  eventBus.emit('conn:status', {
+    status:      socket?.connected ? 'connected' : 'disconnected',
+    socketId:    socket?.id || null,
+    serverUrl:   config.SERVER_URL,
+    reconnects:  reconnectN,
+    effectCount: effectCount,
+    connectedAt: connectedAt?.toISOString() || null,
+    ...extra,
+  });
+}
 
-  socket = io(SERVER_URL, {
+// ─── connect() ────────────────────────────────────────────────────────────
+
+function connect() {
+  const serverUrl = config.SERVER_URL;
+  if (!serverUrl) {
+    logger.error('[Connection] SERVER_URL tidak dikonfigurasi di .env');
+    process.exit(1);
+  }
+
+  logger.info(`[Connection] Menghubungkan ke server: ${serverUrl}`);
+
+  socket = io(serverUrl, {
     auth: {
-      secret:     CLIENT_SECRET,
-      clientName: CLIENT_NAME,
+      secret:     config.CLIENT_SECRET || '',
+      clientName: config.CLIENT_NAME   || 'GamePC',
       role:       'game-client',
     },
-    reconnection:        true,
-    reconnectionDelay:   1000,
-    reconnectionDelayMax: 30000,
+    reconnection:         true,
     reconnectionAttempts: Infinity,
+    reconnectionDelay:    1000,
+    reconnectionDelayMax: 30000,
+    randomizationFactor:  0.3,
   });
 
   socket.on('connect', () => {
+    reconnectN  = 0;
+    connectedAt = new Date();
     logger.info(`[Connection] ✓ Terhubung ke server (id: ${socket.id})`);
-    bus.emit('conn:status', { status: 'connected', serverUrl: SERVER_URL, since: Date.now() });
+    emitStatus({ status: 'connected' });
+    eventBus.emit('log', { level: 'info', message: `Terhubung ke ${serverUrl} (${socket.id})` });
   });
 
   socket.on('disconnect', (reason) => {
     logger.warn(`[Connection] Terputus: ${reason}`);
-    bus.emit('conn:status', { status: 'disconnected', serverUrl: SERVER_URL });
+    connectedAt = null;
+    emitStatus({ status: 'disconnected' });
+    eventBus.emit('log', { level: 'warn', message: `Terputus: ${reason}` });
   });
 
   socket.on('reconnect_attempt', (n) => {
-    logger.info(`[Connection] Mencoba reconnect (#${n})...`);
-    bus.emit('conn:status', { status: 'reconnecting', serverUrl: SERVER_URL });
+    reconnectN = n;
+    logger.info(`[Connection] Mencoba reconnect ke-${n}...`);
+    emitStatus({ status: 'reconnecting' });
   });
 
   socket.on('reconnect', () => {
-    logger.info('[Connection] Berhasil reconnect!');
-    bus.emit('conn:status', { status: 'connected', serverUrl: SERVER_URL, since: Date.now() });
+    connectedAt = new Date();
+    logger.info(`[Connection] ✓ Berhasil reconnect setelah ${reconnectN} percobaan`);
+    emitStatus({ status: 'connected' });
+    eventBus.emit('log', { level: 'info', message: `Reconnect berhasil setelah ${reconnectN} percobaan` });
+  });
+
+  socket.on('reconnect_failed', () => {
+    logger.error('[Connection] Reconnect gagal total.');
+    emitStatus({ status: 'disconnected' });
   });
 
   socket.on('auth_error', (msg) => {
-    logger.error(`[Connection] Auth gagal: ${msg || 'CLIENT_SECRET salah?'}`);
-    bus.emit('log', { level: 'error', message: `Auth gagal: ${msg || 'Cek CLIENT_SECRET di .env'}` });
+    logger.error(`[Connection] Auth gagal: ${msg}. Cek CLIENT_SECRET.`);
+    eventBus.emit('log', { level: 'error', message: `Auth error: ${msg}` });
     socket.disconnect();
   });
 
   socket.on('effect', (payload) => {
-    logger.info(`[Connection] Efek masuk: [${payload.adapter}] ${payload.action}`);
-    // Forward ke dashboard
-    bus.emit('effect', payload);
-    // Eksekusi
-    adapterManager.execute(payload).catch(err => {
-      logger.error('[Connection] Error eksekusi efek:', err.message);
+    effectCount++;
+    eventBus.emit('effect', payload);
+    adapterManager.execute(payload).catch((err) => {
+      logger.error(`[Connection] Error execute effect: ${err.message}`);
+      eventBus.emit('log', { level: 'error', message: `Effect error: ${err.message}` });
     });
   });
 
-  // Teruskan log ke dashboard
-  bus.on('log', (entry) => {
-    // Log sudah ditangani logger, ini hanya untuk SSE ke UI
-  });
+  return socket;
 }
 
-function stop() {
+// ─── disconnect() ─────────────────────────────────────────────────────────
+
+function disconnect() {
   if (socket) {
     socket.disconnect();
-    socket = null;
+    logger.info('[Connection] Koneksi diputus manual');
+    eventBus.emit('log', { level: 'warn', message: 'Koneksi diputus dari dashboard' });
   }
 }
 
-module.exports = { start, stop };
+// ─── reconnect() — dipanggil dari /api/reconnect ──────────────────────────
+
+function reconnect() {
+  if (socket) {
+    socket.disconnect();
+    setTimeout(() => {
+      if (socket) {
+        socket.connect();
+        logger.info('[Connection] Reconnect dipicu dari dashboard');
+        emitStatus({ status: 'reconnecting' });
+      }
+    }, 500);
+  } else {
+    connect();
+  }
+}
+
+// ─── getState() — untuk /api/state ───────────────────────────────────────
+
+function getState() {
+  return {
+    status:      socket?.connected ? 'connected' : 'disconnected',
+    socketId:    socket?.id || null,
+    serverUrl:   config.SERVER_URL,
+    reconnects:  reconnectN,
+    effectCount: effectCount,
+    connectedAt: connectedAt?.toISOString() || null,
+    since:       connectedAt ? connectedAt.getTime() : null,
+  };
+}
+
+function getSocket()      { return socket; }
+function getEffectCount() { return effectCount; }
+
+module.exports = { connect, disconnect, reconnect, getSocket, getState, getEffectCount };
