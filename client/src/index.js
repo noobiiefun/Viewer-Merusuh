@@ -1,38 +1,52 @@
 'use strict';
 
 /**
- * Viewer Merusuh — CLIENT
+ * Viewer Merusuh — CLIENT v0.5.0
  * Entry point utama
  */
 
 require('dotenv').config();
 
 const logger         = require('./utils/logger');
-const config         = require('./utils/config');
-const connection     = require('./core/connection');
 const adapterManager = require('./core/adapterManager');
+const connection     = require('./core/connection');
+const dashboard      = require('./core/dashboard');
 
-// ── Adapters ────────────────────────────────────────────
+// Adapters
 const ahkAdapter    = require('./adapters/ahk');
 const vjoyAdapter   = require('./adapters/vjoy');
 const pluginAdapter = require('./adapters/plugin');
 
 async function main() {
   logger.info('═══════════════════════════════════════');
-  logger.info('  Viewer Merusuh CLIENT  starting up   ');
+  logger.info('  Viewer Merusuh CLIENT  v0.5.0        ');
   logger.info('═══════════════════════════════════════');
 
-  if (config.ADAPTER_AHK)    adapterManager.register('ahk',    ahkAdapter);
-  if (config.ADAPTER_VJOY)   adapterManager.register('vjoy',   vjoyAdapter);
-  if (config.ADAPTER_PLUGIN) adapterManager.register('plugin', pluginAdapter);
+  // Daftarkan adapter
+  if (process.env.ADAPTER_AHK    !== 'false') adapterManager.register('ahk',    ahkAdapter);
+  if (process.env.ADAPTER_VJOY   === 'true')  adapterManager.register('vjoy',   vjoyAdapter);
+  if (process.env.ADAPTER_PLUGIN === 'true')  adapterManager.register('plugin', pluginAdapter);
 
+  // Init adapter
   await adapterManager.initAll();
+
+  // Web Dashboard
+  if (process.env.DASHBOARD_ENABLED !== 'false') {
+    try {
+      await dashboard.init(adapterManager, connection);
+    } catch (err) {
+      logger.warn('[Main] Dashboard gagal start (tidak fatal):', err.message);
+    }
+  }
+
+  // Koneksi ke server
   connection.start(adapterManager);
 
   const shutdown = async (signal) => {
-    logger.info(`\n[Main] Menerima ${signal} — shutting down...`);
+    logger.info(`\n[Main] ${signal} — shutting down...`);
     connection.stop();
     await adapterManager.destroyAll();
+    await dashboard.destroy();
     process.exit(0);
   };
 

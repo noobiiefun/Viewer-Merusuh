@@ -1,267 +1,127 @@
 'use strict';
 
 /**
- * AHK Adapter — Step 2
+ * AHK Adapter — Step 1 & 2
+ * Menjalankan script AutoHotkey v2 berdasarkan action yang diterima.
  *
- * Menjalankan script AutoHotkey v2 berdasarkan action_key.
- * Support:
- *  - params diteruskan ke script via CLI args
- *  - per-script logging ke file logs/ahk/
- *  - fallback ke lib/generic_key.ahk jika script spesifik tidak ada
- *  - dry-run mode (LOG_LEVEL=debug, AHK_DRY_RUN=true)
+ * Resolusi path script:
+ *   adapters/ahk/games/<category>/<action>.ahk   (utama)
+ *   adapters/ahk/lib/<action>.ahk                 (fallback)
+ *   adapters/ahk/lib/generic_key.ahk              (fallback terakhir)
  */
 
-const { spawn } = require('child_process');
-const path      = require('path');
-const fs        = require('fs');
-const logger    = require('../utils/logger');
-const config    = require('../utils/config');
+const { spawn }  = require('child_process');
+const path       = require('path');
+const fs         = require('fs');
+const logger     = require('../utils/logger');
 
-// ─────────────────────────────────────────────
-// Resolusi path
-// ─────────────────────────────────────────────
+const AHK_EXE    = process.env.AHK_EXE_PATH || 'C:\\Program Files\\AutoHotkey\\v2\\AutoHotkey64.exe';
+const AHK_ROOT   = path.resolve(process.cwd(), 'adapters', 'ahk');
 
-// Root folder scripts AHK (relatif terhadap root project client)
-const AHK_ROOT = path.resolve(
-  config.AHK_SCRIPTS_PATH || path.join(__dirname, '..', '..', 'adapters', 'ahk')
-);
+// Direktori pencarian script (urutan prioritas)
+const SEARCH_DIRS = [
+  path.join(AHK_ROOT, 'games', 'racing'),
+  path.join(AHK_ROOT, 'games', 'action'),
+  path.join(AHK_ROOT, 'games', 'fps'),
+  path.join(AHK_ROOT, 'games', 'misc'),
+  path.join(AHK_ROOT, 'games'),
+  path.join(AHK_ROOT, 'lib'),
+];
 
-// Log folder untuk output per script
-const LOG_DIR = path.resolve(config.LOG_DIR || path.join(__dirname, '..', '..', 'logs', 'ahk'));
+const FALLBACK_SCRIPT = path.join(AHK_ROOT, 'lib', 'generic_key.ahk');
 
-// Pastikan log dir ada
-if (!fs.existsSync(LOG_DIR)) {
-  fs.mkdirSync(LOG_DIR, { recursive: true });
-}
+// ─── Helpers ───────────────────────────────────────────────────────────────
 
-// ─────────────────────────────────────────────
-// Registry: action_key → path relatif script
-// ─────────────────────────────────────────────
-// Mendukung path eksplisit per action.
-// Jika tidak terdaftar, adapter akan coba auto-resolve dari subfolder games/.
-
-const ACTION_REGISTRY = {
-  // ── Racing ──────────────────────────────────
-  brake_force:   'games/racing/brake_force.ahk',
-  handbrake:     'games/racing/handbrake.ahk',
-  full_throttle: 'games/racing/full_throttle.ahk',
-  flip_car:      'games/racing/flip_car.ahk',
-  slow_motion:   'games/racing/slow_motion.ahk',
-  random_steer:  'games/racing/random_steer.ahk',
-
-  // ── Action / Open World ─────────────────────
-  horn_spam:        'games/action/horn_spam.ahk',
-  explosion_rain:   'games/action/explosion_rain.ahk',
-  wanted_level_up:  'games/action/wanted_level_up.ahk',
-  ragdoll:          'games/action/ragdoll.ahk',
-  super_jump:       'games/action/super_jump.ahk',
-  chaos_mode:       'games/action/chaos_mode.ahk',
-
-  // ── FPS ─────────────────────────────────────
-  no_ammo:       'games/fps/no_ammo.ahk',
-  invert_mouse:  'games/fps/invert_mouse.ahk',
-  random_weapon: 'games/fps/random_weapon.ahk',
-
-  // ── Survival ────────────────────────────────
-  drop_item:    'games/survival/drop_item.ahk',
-  camera_shake: 'games/survival/camera_shake.ahk',
-};
-
-// ─────────────────────────────────────────────
-// Helper: serialize params menjadi argumen CLI
-// ─────────────────────────────────────────────
-// Format yang dikirim ke script AHK: key=value sebagai arg posisi 1
-// Script AHK bisa parse: A_Args[1] berisi JSON string
-//
-// Contoh: { duration_ms: 3000, intensity: 2 }
-//   → AutoHotkey64.exe script.ahk "{""duration_ms"":3000,""intensity"":2}"
-//
-function buildAhkArgs(scriptPath, params = {}) {
-  const args = [scriptPath];
-  if (params && Object.keys(params).length > 0) {
-    // JSON → escape double quotes untuk Windows CLI
-    const json = JSON.stringify(params).replace(/"/g, '""');
-    args.push(json);
+function findScript(action) {
+  const filename = `${action}.ahk`;
+  for (const dir of SEARCH_DIRS) {
+    const candidate = path.join(dir, filename);
+    if (fs.existsSync(candidate)) return candidate;
   }
-  return args;
-}
-
-// ─────────────────────────────────────────────
-// Helper: resolve path script
-// ─────────────────────────────────────────────
-function resolveScriptPath(action) {
-  // 1. Cek registry eksplisit
-  if (ACTION_REGISTRY[action]) {
-    const p = path.join(AHK_ROOT, ACTION_REGISTRY[action]);
-    if (fs.existsSync(p)) return p;
-    logger.warn(`[AHK] Registry entry untuk "${action}" tidak ditemukan: ${p}`);
-  }
-
-  // 2. Auto-resolve: cari di semua subfolder games/
-  const gamesDir = path.join(AHK_ROOT, 'games');
-  if (fs.existsSync(gamesDir)) {
-    for (const group of fs.readdirSync(gamesDir)) {
-      const candidate = path.join(gamesDir, group, `${action}.ahk`);
-      if (fs.existsSync(candidate)) {
-        logger.debug(`[AHK] Auto-resolved "${action}" → ${candidate}`);
-        return candidate;
-      }
-    }
-  }
-
-  // 3. Fallback ke lib/generic_key.ahk
-  const fallback = path.join(AHK_ROOT, 'lib', 'generic_key.ahk');
-  if (fs.existsSync(fallback)) {
-    logger.warn(`[AHK] Script untuk "${action}" tidak ditemukan, fallback ke generic_key.ahk`);
-    return fallback;
-  }
-
+  if (fs.existsSync(FALLBACK_SCRIPT)) return FALLBACK_SCRIPT;
   return null;
 }
 
-// ─────────────────────────────────────────────
-// Helper: per-script file logger
-// ─────────────────────────────────────────────
-function getScriptLogStream(action) {
-  const logFile = path.join(LOG_DIR, `${action}.log`);
-  return fs.createWriteStream(logFile, { flags: 'a' });
-}
-
-function writeScriptLog(stream, tag, data) {
-  const ts  = new Date().toISOString();
-  const line = `[${ts}] [${tag}] ${data}\n`;
-  stream.write(line);
-}
-
-// ─────────────────────────────────────────────
-// Core: eksekusi script AHK
-// ─────────────────────────────────────────────
-function execute({ action, params = {}, duration_ms, donation } = {}) {
+/**
+ * Jalankan script AHK dan tunggu sampai selesai.
+ * @param {string} scriptPath
+ * @param {string[]} args
+ * @returns {Promise<void>}
+ */
+function runAHK(scriptPath, args = []) {
   return new Promise((resolve, reject) => {
-    const ahkExe = config.AHK_EXE_PATH;
-    if (!ahkExe) {
-      return reject(new Error('AHK_EXE_PATH tidak dikonfigurasi di .env'));
-    }
+    logger.debug(`[AHK] Menjalankan: "${AHK_EXE}" "${scriptPath}" ${args.join(' ')}`);
 
-    const scriptPath = resolveScriptPath(action);
-    if (!scriptPath) {
-      return reject(new Error(`Tidak ada script AHK untuk action "${action}"`));
-    }
-
-    // Gabungkan params + durasi ke payload
-    const effectParams = { duration_ms, ...params };
-
-    const args    = buildAhkArgs(scriptPath, effectParams);
-    const logTag  = donation?.username ? `${donation.username}/${action}` : action;
-    const logStream = getScriptLogStream(action);
-
-    logger.info(`[AHK] Eksekusi: ${action} | params: ${JSON.stringify(effectParams)}`);
-    logger.debug(`[AHK] Command: "${ahkExe}" ${args.join(' ')}`);
-
-    writeScriptLog(logStream, 'START', `action=${action} params=${JSON.stringify(effectParams)} script=${scriptPath}`);
-    if (donation) {
-      writeScriptLog(logStream, 'DONATION', `user=${donation.username} amount=${donation.amount} msg="${donation.message}"`);
-    }
-
-    // Dry-run: skip proses nyata
-    if (config.AHK_DRY_RUN === 'true') {
-      logger.warn(`[AHK] DRY_RUN aktif — skip eksekusi nyata: ${action}`);
-      writeScriptLog(logStream, 'DRY_RUN', 'skipped');
-      logStream.end();
-      return resolve({ action, dryRun: true });
-    }
-
-    const proc = spawn(ahkExe, args, {
-      detached: false,
+    const proc = spawn(AHK_EXE, [scriptPath, ...args], {
       stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
     });
 
-    let stdout = '';
-    let stderr = '';
+    proc.stdout.on('data', d => logger.debug(`[AHK stdout] ${d.toString().trim()}`));
+    proc.stderr.on('data', d => logger.warn(`[AHK stderr] ${d.toString().trim()}`));
 
-    proc.stdout.on('data', (data) => {
-      const text = data.toString().trim();
-      if (text) {
-        stdout += text + '\n';
-        logger.debug(`[AHK][${action}] stdout: ${text}`);
-        writeScriptLog(logStream, 'STDOUT', text);
-      }
-    });
-
-    proc.stderr.on('data', (data) => {
-      const text = data.toString().trim();
-      if (text) {
-        stderr += text + '\n';
-        logger.warn(`[AHK][${action}] stderr: ${text}`);
-        writeScriptLog(logStream, 'STDERR', text);
-      }
-    });
-
-    proc.on('error', (err) => {
-      logger.error(`[AHK] Gagal spawn proses: ${err.message}`);
-      writeScriptLog(logStream, 'ERROR', err.message);
-      logStream.end();
-      reject(err);
-    });
-
-    proc.on('close', (code) => {
-      const status = code === 0 ? 'OK' : `EXIT_${code}`;
-      logger.info(`[AHK] Selesai: ${action} (${status})`);
-      writeScriptLog(logStream, 'END', `exit_code=${code}`);
-      logStream.end();
-
-      if (code !== 0) {
-        reject(new Error(`Script AHK "${action}" keluar dengan kode ${code}\n${stderr}`));
+    proc.on('error', err => {
+      if (err.code === 'ENOENT') {
+        reject(new Error(`AutoHotkey tidak ditemukan di: ${AHK_EXE}\nCek AHK_EXE_PATH di .env`));
       } else {
-        resolve({ action, exitCode: code, stdout, stderr });
+        reject(err);
+      }
+    });
+
+    proc.on('close', code => {
+      if (code === 0 || code === null) {
+        resolve();
+      } else {
+        reject(new Error(`AHK exit code ${code} untuk script: ${scriptPath}`));
       }
     });
   });
 }
 
-// ─────────────────────────────────────────────
-// Info: daftar action yang tersedia
-// ─────────────────────────────────────────────
-function getAvailableActions() {
-  const result = [];
+// ─── Adapter Interface ─────────────────────────────────────────────────────
 
-  for (const [action, relPath] of Object.entries(ACTION_REGISTRY)) {
-    const absPath = path.join(AHK_ROOT, relPath);
-    result.push({
-      action,
-      path:   relPath,
-      exists: fs.existsSync(absPath),
-    });
-  }
-
-  // Scan games/ untuk script yang tidak terdaftar di registry
-  const gamesDir = path.join(AHK_ROOT, 'games');
-  if (fs.existsSync(gamesDir)) {
-    for (const group of fs.readdirSync(gamesDir)) {
-      const groupDir = path.join(gamesDir, group);
-      if (!fs.statSync(groupDir).isDirectory()) continue;
-      for (const file of fs.readdirSync(groupDir)) {
-        if (!file.endsWith('.ahk')) continue;
-        const action = file.replace('.ahk', '');
-        if (!ACTION_REGISTRY[action]) {
-          result.push({
-            action,
-            path:      `games/${group}/${file}`,
-            exists:    true,
-            untracked: true,
-          });
-        }
-      }
-    }
-  }
-
-  return result;
-}
-
-module.exports = {
+const ahkAdapter = {
   name: 'ahk',
-  execute,
-  getAvailableActions,
-  resolveScriptPath,
-  AHK_ROOT,
+
+  async init() {
+    // Cek apakah AHK executable ada
+    if (!fs.existsSync(AHK_EXE)) {
+      logger.warn(`[AHK] AutoHotkey tidak ditemukan: ${AHK_EXE}`);
+      logger.warn(`[AHK] Pastikan AutoHotkey v2 terinstall dan AHK_EXE_PATH di .env sudah benar.`);
+      // Tetap return true — mungkin AHK ada di PATH system
+    }
+
+    if (!fs.existsSync(AHK_ROOT)) {
+      logger.warn(`[AHK] Folder adapters/ahk/ tidak ditemukan.`);
+      logger.warn(`[AHK] Salin folder adapters/ahk/ dari PC Server ke sini.`);
+    }
+
+    logger.info(`[AHK] Adapter aktif. Script root: ${AHK_ROOT}`);
+    return true;
+  },
+
+  async execute({ action, params = {} }) {
+    const scriptPath = findScript(action);
+
+    if (!scriptPath) {
+      logger.warn(`[AHK] Script tidak ditemukan untuk action: "${action}"`);
+      logger.warn(`[AHK] Buat file: adapters/ahk/games/<kategori>/${action}.ahk`);
+      logger.debug(`[AHK] Path yang dicari: ${SEARCH_DIRS.map(d => path.join(d, action + '.ahk')).join(', ')}`);
+      return;
+    }
+
+    logger.info(`[AHK] Menjalankan: ${path.relative(process.cwd(), scriptPath)}`);
+
+    // Kirim params sebagai argumen JSON ke script AHK
+    const args = Object.keys(params).length > 0 ? [JSON.stringify(params)] : [];
+
+    try {
+      await runAHK(scriptPath, args);
+      logger.info(`[AHK] ✓ "${action}" selesai`);
+    } catch (err) {
+      logger.error(`[AHK] Error "${action}": ${err.message}`);
+    }
+  },
 };
+
+module.exports = ahkAdapter;

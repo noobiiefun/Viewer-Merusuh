@@ -1,14 +1,19 @@
-; games/racing/brake_force.ahk — Rem mendadak
-; Params: duration_ms (default 3000)
-;
-; Menahan tombol brake (Space) selama duration_ms
+; brake_force.ahk — Viewer Merusuh
+; Efek: Tekan rem mendadak di game racing
+; Cocok untuk: BeamNG, Assetto Corsa, CarX, dll (keyboard mode)
 
 #Requires AutoHotkey v2.0
-#Include %A_ScriptDir%\..\..\lib\params.ahk
+#SingleInstance Force
 
-params      := VM_GetParams()
-duration_ms := VM_GetDuration(params, 3000)
+params := { duration_ms: 3000 }
 
-Send "{Space down}"
-Sleep duration_ms
-Send "{Space up}"
+if A_Args.Length > 0 {
+    raw := A_Args[1]
+    if RegExMatch(raw, '"duration_ms"\s*:\s*(\d+)', &m)
+        params.duration_ms := Integer(m[1])
+}
+
+; S = rem di banyak game racing (default WASD)
+Send("{s down}")
+Sleep(params.duration_ms)
+Send("{s up}")

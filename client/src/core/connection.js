@@ -1,85 +1,85 @@
 'use strict';
 
 /**
- * connection.js — Koneksi Socket.IO ke server Viewer Merusuh
- * Step 2: tidak ada perubahan dari Step 1 kecuali minor logging improvement
+ * connection.js
+ * Koneksi Socket.IO ke server dengan:
+ *   - Auto-reconnect (exponential backoff)
+ *   - Auth handshake (clientSecret + clientName)
+ *   - Emit event ke dashboard via eventBus
  */
 
-const { io }    = require('socket.io-client');
-const logger    = require('../utils/logger');
-const config    = require('../utils/config');
-const adapterManager = require('./adapterManager');
+const { io }   = require('socket.io-client');
+const logger   = require('../utils/logger');
+const bus      = require('./eventBus');
 
-let socket     = null;
-let reconnectN = 0;
+let socket = null;
 
-function connect() {
-  const serverUrl = config.SERVER_URL;
-  if (!serverUrl) {
-    logger.error('[Connection] SERVER_URL tidak dikonfigurasi di .env');
-    process.exit(1);
-  }
+function start(adapterManager) {
+  const SERVER_URL    = process.env.SERVER_URL    || 'http://localhost:3000';
+  const CLIENT_SECRET = process.env.CLIENT_SECRET || '';
+  const CLIENT_NAME   = process.env.CLIENT_NAME   || 'GamePC';
 
-  logger.info(`[Connection] Menghubungkan ke server: ${serverUrl}`);
+  logger.info(`[Connection] Menghubungkan ke ${SERVER_URL} ...`);
 
-  socket = io(serverUrl, {
+  socket = io(SERVER_URL, {
     auth: {
-      secret:     config.CLIENT_SECRET || '',
-      clientName: config.CLIENT_NAME   || 'GamePC',
+      secret:     CLIENT_SECRET,
+      clientName: CLIENT_NAME,
       role:       'game-client',
     },
     reconnection:        true,
-    reconnectionAttempts: Infinity,
     reconnectionDelay:   1000,
     reconnectionDelayMax: 30000,
-    randomizationFactor: 0.3,
+    reconnectionAttempts: Infinity,
   });
 
-  // ── Event handlers ─────────────────────────
-
   socket.on('connect', () => {
-    reconnectN = 0;
     logger.info(`[Connection] ✓ Terhubung ke server (id: ${socket.id})`);
+    bus.emit('conn:status', { status: 'connected', serverUrl: SERVER_URL, since: Date.now() });
   });
 
   socket.on('disconnect', (reason) => {
     logger.warn(`[Connection] Terputus: ${reason}`);
+    bus.emit('conn:status', { status: 'disconnected', serverUrl: SERVER_URL });
   });
 
   socket.on('reconnect_attempt', (n) => {
-    reconnectN = n;
-    logger.info(`[Connection] Mencoba reconnect ke-${n}...`);
+    logger.info(`[Connection] Mencoba reconnect (#${n})...`);
+    bus.emit('conn:status', { status: 'reconnecting', serverUrl: SERVER_URL });
   });
 
   socket.on('reconnect', () => {
-    logger.info(`[Connection] ✓ Berhasil reconnect setelah ${reconnectN} percobaan`);
-  });
-
-  socket.on('reconnect_failed', () => {
-    logger.error('[Connection] Reconnect gagal total. Cek SERVER_URL dan jaringan.');
+    logger.info('[Connection] Berhasil reconnect!');
+    bus.emit('conn:status', { status: 'connected', serverUrl: SERVER_URL, since: Date.now() });
   });
 
   socket.on('auth_error', (msg) => {
-    logger.error(`[Connection] Auth gagal: ${msg}. Cek CLIENT_SECRET.`);
+    logger.error(`[Connection] Auth gagal: ${msg || 'CLIENT_SECRET salah?'}`);
+    bus.emit('log', { level: 'error', message: `Auth gagal: ${msg || 'Cek CLIENT_SECRET di .env'}` });
     socket.disconnect();
   });
 
-  // ── Terima efek dari server ─────────────────
   socket.on('effect', (payload) => {
-    adapterManager.execute(payload).catch((err) => {
-      logger.error(`[Connection] Error execute effect: ${err.message}`);
+    logger.info(`[Connection] Efek masuk: [${payload.adapter}] ${payload.action}`);
+    // Forward ke dashboard
+    bus.emit('effect', payload);
+    // Eksekusi
+    adapterManager.execute(payload).catch(err => {
+      logger.error('[Connection] Error eksekusi efek:', err.message);
     });
   });
 
-  return socket;
+  // Teruskan log ke dashboard
+  bus.on('log', (entry) => {
+    // Log sudah ditangani logger, ini hanya untuk SSE ke UI
+  });
 }
 
-function disconnect() {
-  if (socket) socket.disconnect();
+function stop() {
+  if (socket) {
+    socket.disconnect();
+    socket = null;
+  }
 }
 
-function getSocket() {
-  return socket;
-}
-
-module.exports = { connect, disconnect, getSocket };
+module.exports = { start, stop };

@@ -1,14 +1,23 @@
-; games/racing/flip_car.ahk — Balik mobil (BeamNG / GTA)
-; Params: duration_ms (default 1500), key (default "r")
-; Di BeamNG: R = recover/flip vehicle
+; flip_car.ahk — Viewer Merusuh
+; Efek: Putar stir penuh ke kiri lalu kanan (bikin mobil oleng)
 
 #Requires AutoHotkey v2.0
-#Include %A_ScriptDir%\..\..\lib\params.ahk
+#SingleInstance Force
 
-params      := VM_GetParams()
-duration_ms := VM_GetDuration(params, 1500)
-key         := params.Has("key") ? params["key"] : "r"
+params := { duration_ms: 2000 }
 
-Send "{" key " down}"
-Sleep duration_ms
-Send "{" key " up}"
+if A_Args.Length > 0 {
+    raw := A_Args[1]
+    if RegExMatch(raw, '"duration_ms"\s*:\s*(\d+)', &m)
+        params.duration_ms := Integer(m[1])
+}
+
+half := params.duration_ms // 2
+
+Send("{a down}")
+Sleep(half)
+Send("{a up}")
+Sleep(50)
+Send("{d down}")
+Sleep(half)
+Send("{d up}")

@@ -1,6 +1,6 @@
 {
   "name": "viewer-merusuh-client",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Client agent untuk Viewer Merusuh — menjalankan efek di PC Gaming",
   "main": "src/index.js",
   "scripts": {
@@ -8,8 +8,8 @@
     "dev":          "nodemon src/index.js",
     "setup":        "node scripts/setup.js",
     "test:vjoy":    "node scripts/test-vjoy.js",
-    "test:ahk":     "node scripts/test-ahk.js",
-    "test:plugin":  "node scripts/test-plugin.js"
+    "test:plugin":  "node scripts/test-plugin.js",
+    "dashboard":    "node -e \"require('dotenv').config(); const d=require('./src/core/dashboard'); const am=require('./src/core/adapterManager'); d.init(am,null).then(()=>console.log('Dashboard only mode'))\""
   },
   "dependencies": {
     "dotenv":           "^16.0.0",

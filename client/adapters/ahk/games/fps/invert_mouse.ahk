@@ -1,18 +1,43 @@
-; games/fps/invert_mouse.ahk — Kamera chaos (gerakan mouse acak)
-; Params: duration_ms (default 3000), intensity (default 200, dalam pixel)
+; invert_mouse.ahk — Viewer Merusuh
+; Efek: Inversi gerakan mouse selama durasi (FPS game)
 
 #Requires AutoHotkey v2.0
-#Include %A_ScriptDir%\..\..\lib\params.ahk
+#SingleInstance Force
 
-params      := VM_GetParams()
-duration_ms := VM_GetDuration(params, 3000)
-intensity   := VM_GetInt(params, "intensity", 200)
+params := { duration_ms: 5000 }
 
-startTime := A_TickCount
-while (A_TickCount - startTime < duration_ms) {
-    ; Gerak mouse acak
-    dx := Random(-intensity, intensity)
-    dy := Random(-intensity, intensity)
-    MouseMove dx, dy, 0, "R"   ; relative move, speed 0 = instant
-    Sleep 80
+if A_Args.Length > 0 {
+    raw := A_Args[1]
+    if RegExMatch(raw, '"duration_ms"\s*:\s*(\d+)', &m)
+        params.duration_ms := Integer(m[1])
 }
+
+; Hook mouse movement dan inversi
+DllCall("BlockInput", "UInt", 0)  ; pastikan input tidak diblock
+
+endTime := A_TickCount + params.duration_ms
+prevX   := 0
+prevY   := 0
+
+; Gunakan timer untuk inversi (simplified: gerak mouse ke arah berlawanan)
+SetTimer(InvertLoop, 10)
+
+InvertLoop() {
+    global endTime, prevX, prevY
+    if A_TickCount > endTime {
+        SetTimer(InvertLoop, 0)
+        return
+    }
+    MouseGetPos(&cx, &cy)
+    dx := cx - prevX
+    dy := cy - prevY
+    if (Abs(dx) > 2 || Abs(dy) > 2) {
+        ; Inversi: gerak balik 2x amplitudo
+        MouseMove(cx - dx*2, cy - dy*2, 0)
+    }
+    prevX := cx
+    prevY := cy
+}
+
+Sleep(params.duration_ms + 100)
+SetTimer(InvertLoop, 0)

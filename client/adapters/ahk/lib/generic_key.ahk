@@ -1,21 +1,24 @@
-; lib/generic_key.ahk — Fallback generic key press
-; Dipakai jika action tidak punya script spesifik
-; Params: key (string), presses (int), delay_ms (int), duration_ms (int)
-;
-; Contoh: kirim dari server dengan params: { key: "Space", presses: 1 }
+; generic_key.ahk — Viewer Merusuh fallback script
+; Dipanggil saat tidak ada script spesifik untuk action yang diterima.
+; Argument 1 (opsional): JSON params dari server
+;   Contoh params: {"key":"Space","duration_ms":200}
 
 #Requires AutoHotkey v2.0
-#Include %A_ScriptDir%\params.ahk
+#SingleInstance Force
 
-params      := VM_GetParams()
-key         := params.Has("key")       ? params["key"]        : "Space"
-presses     := VM_GetInt(params, "presses", 1)
-delay_ms    := VM_GetInt(params, "delay_ms", 50)
-duration_ms := VM_GetDuration(params, 1000)
+params := { key: "Space", duration_ms: 200 }
 
-; Kirim key sebanyak presses kali
-Loop presses {
-    Send "{" key "}"
-    if A_Index < presses
-        Sleep delay_ms
+; Parse JSON argument jika ada
+if A_Args.Length > 0 {
+    raw := A_Args[1]
+    ; Ekstrak "key" dan "duration_ms" dari JSON sederhana
+    if RegExMatch(raw, '"key"\s*:\s*"([^"]+)"', &m)
+        params.key := m[1]
+    if RegExMatch(raw, '"duration_ms"\s*:\s*(\d+)', &m)
+        params.duration_ms := Integer(m[1])
 }
+
+; Tekan key selama durasi
+Send("{" params.key " down}")
+Sleep(params.duration_ms)
+Send("{" params.key " up}")

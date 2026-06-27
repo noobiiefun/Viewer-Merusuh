@@ -1,30 +1,52 @@
 'use strict';
 
-const config = (() => {
-  try { return require('./config'); } catch { return { LOG_LEVEL: 'info' }; }
-})();
+/**
+ * Logger dengan color-coding dan forward ke dashboard event bus
+ */
 
-const LEVELS = { debug: 0, info: 1, warn: 2, error: 3 };
-const current = LEVELS[config.LOG_LEVEL] ?? LEVELS.info;
-
-const C = {
-  reset:  '\x1b[0m',
-  gray:   '\x1b[90m',
-  green:  '\x1b[32m',
-  yellow: '\x1b[33m',
-  red:    '\x1b[31m',
-  cyan:   '\x1b[36m',
+const LEVELS = { error: 0, warn: 1, info: 2, debug: 3 };
+const COLORS = {
+  error: '\x1b[31m',   // merah
+  warn:  '\x1b[33m',   // kuning
+  info:  '\x1b[36m',   // cyan
+  debug: '\x1b[90m',   // abu-abu
+  reset: '\x1b[0m',
 };
 
-function ts() {
-  return new Date().toTimeString().slice(0, 8);
+const currentLevel = LEVELS[process.env.LOG_LEVEL] ?? LEVELS.info;
+
+let _bus = null;
+// Lazy-load bus untuk hindari circular require
+function getBus() {
+  if (!_bus) {
+    try { _bus = require('../core/eventBus'); } catch {}
+  }
+  return _bus;
+}
+
+function log(level, ...args) {
+  if (LEVELS[level] > currentLevel) return;
+
+  const ts  = new Date().toLocaleTimeString('id-ID', { hour12: false });
+  const col = COLORS[level] || '';
+  const rst = COLORS.reset;
+  const tag = level.toUpperCase().padEnd(5);
+  const msg = args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ');
+
+  process.stdout.write(`${col}[${ts}] ${tag}${rst} ${msg}\n`);
+
+  // Forward ke dashboard via bus (non-blocking, best-effort)
+  try {
+    const bus = getBus();
+    if (bus) bus.emit('log', { level, message: msg, timestamp: Date.now() });
+  } catch {}
 }
 
 const logger = {
-  debug: (msg) => { if (current <= 0) console.log(`${C.gray}[${ts()}] DBG${C.reset} ${msg}`); },
-  info:  (msg) => { if (current <= 1) console.log(`${C.cyan}[${ts()}] INF${C.reset} ${msg}`); },
-  warn:  (msg) => { if (current <= 2) console.log(`${C.yellow}[${ts()}] WRN${C.reset} ${msg}`); },
-  error: (msg) => { if (current <= 3) console.error(`${C.red}[${ts()}] ERR${C.reset} ${msg}`); },
+  error: (...a) => log('error', ...a),
+  warn:  (...a) => log('warn',  ...a),
+  info:  (...a) => log('info',  ...a),
+  debug: (...a) => log('debug', ...a),
 };
 
 module.exports = logger;
