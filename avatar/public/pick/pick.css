@@ -1,0 +1,549 @@
+/* ═══════════════════════════════════════════════════════════
+   pick.css — Halaman Pilih Avatar | Viewer Merusuh
+   Tema: pixel art retro game, gelap, warna aksen ungu/pink
+══════════════════════════════════════════════════════════════ */
+
+/* ── Reset & Base ──────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:           #0f0f1a;
+  --bg-card:      #1a1a2e;
+  --bg-card-alt:  #16213e;
+  --border:       #2a2a4a;
+  --border-hover: #4a4a8a;
+
+  --accent:       #7c5cfc;
+  --accent-glow:  rgba(124, 92, 252, 0.35);
+  --accent-dark:  #5a3dd6;
+  --pink:         #f472b6;
+  --gold:         #fbbf24;
+  --green:        #34d399;
+  --red:          #f87171;
+
+  --text:         #e2e8f0;
+  --text-muted:   #94a3b8;
+  --text-dim:     #64748b;
+
+  --font-pixel:   'Courier New', 'Courier', monospace;
+  --font-body:    system-ui, -apple-system, sans-serif;
+
+  --radius:       8px;
+  --radius-lg:    12px;
+  --shadow:       0 4px 24px rgba(0,0,0,0.5);
+  --shadow-glow:  0 0 20px var(--accent-glow);
+
+  --transition:   0.18s ease;
+}
+
+html { font-size: 16px; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  /* Subtle pixel grid background */
+  background-image:
+    linear-gradient(rgba(124,92,252,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(124,92,252,0.03) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* ── Header ────────────────────────────────────────────── */
+.pick-header {
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(15,15,26,0.95);
+  backdrop-filter: blur(8px);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.brand-icon {
+  font-size: 28px;
+  image-rendering: pixelated;
+  /* pixel flicker effect */
+  animation: icon-pulse 3s steps(1) infinite;
+}
+
+@keyframes icon-pulse {
+  0%, 90%, 100% { opacity: 1; }
+  92%, 98%       { opacity: 0.6; }
+}
+
+.brand-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 0.02em;
+}
+
+.brand-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* ── Main layout ───────────────────────────────────────── */
+.pick-main {
+  flex: 1;
+  padding: 40px 20px 80px;
+  max-width: 720px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* ── Steps ─────────────────────────────────────────────── */
+.step { width: 100%; }
+
+/* ── Step card (centered card style) ──────────────────── */
+.step-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 48px 40px;
+  text-align: center;
+  box-shadow: var(--shadow);
+}
+
+.step-icon {
+  font-size: 40px;
+  margin-bottom: 16px;
+  image-rendering: pixelated;
+}
+
+.step-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 10px;
+  letter-spacing: -0.01em;
+}
+
+.step-desc {
+  font-size: 14px;
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin-bottom: 28px;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* ── Input group ───────────────────────────────────────── */
+.input-group {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.pick-input {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 14px;
+  padding: 10px 14px;
+  outline: none;
+  font-family: var(--font-body);
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.pick-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.pick-input::placeholder { color: var(--text-dim); }
+
+.input-hint {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-bottom: 16px;
+}
+
+/* ── Buttons ───────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 10px 18px;
+  transition: background var(--transition), transform var(--transition), box-shadow var(--transition);
+  font-family: var(--font-body);
+  white-space: nowrap;
+}
+
+.btn:active { transform: translateY(1px); }
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-dark);
+  box-shadow: var(--shadow-glow);
+}
+.btn-primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-ghost {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+.btn-ghost:hover { border-color: var(--border-hover); color: var(--text); }
+
+.btn-sm { font-size: 12px; padding: 6px 12px; }
+.btn-lg { padding: 12px 28px; font-size: 15px; }
+
+/* ── Alerts ────────────────────────────────────────────── */
+.alert {
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  font-size: 13px;
+  margin-top: 12px;
+  text-align: left;
+  line-height: 1.5;
+}
+
+.alert-error {
+  background: rgba(248, 113, 113, 0.1);
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  color: var(--red);
+}
+
+/* ── Viewer info bar ───────────────────────────────────── */
+.viewer-info-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  margin-bottom: 20px;
+}
+
+.viewer-info-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.viewer-greeting {
+  font-size: 14px;
+  color: var(--text);
+}
+
+.tier-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: var(--accent);
+  color: #fff;
+  /* warna diset via inline style dari JS */
+}
+
+/* ── Current avatar bar ────────────────────────────────── */
+.current-avatar-bar {
+  background: rgba(52, 211, 153, 0.06);
+  border: 1px solid rgba(52, 211, 153, 0.25);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.current-label {
+  font-size: 12px;
+  color: var(--green);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  flex-shrink: 0;
+}
+
+.current-avatar-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.current-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
+/* ── Avatar grid ───────────────────────────────────────── */
+.grid-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+
+.grid-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 20px;
+}
+
+.avatar-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.grid-loading {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 60px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.grid-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+/* ── Avatar card ───────────────────────────────────────── */
+.avatar-card {
+  background: var(--bg-card);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px 12px 14px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color var(--transition), box-shadow var(--transition), transform var(--transition);
+  position: relative;
+}
+
+.avatar-card:hover {
+  border-color: var(--border-hover);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+
+.avatar-card.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), var(--shadow-glow);
+  background: var(--bg-card-alt);
+}
+
+.avatar-card.selected::after {
+  content: '✓';
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.avatar-card-sprite {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 80px;
+  margin-bottom: 10px;
+}
+
+.avatar-card-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+/* ── Avatar sprite (CSS sprite animation) ──────────────── */
+.avatar-sprite-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.avatar-sprite {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  background-repeat: no-repeat;
+  background-position: 0 0;
+  /* ukuran default = 1 frame; dioverride JS berdasarkan frame_width/height */
+  width: 32px;
+  height: 48px;
+  transform: scale(2);
+  transform-origin: center center;
+}
+
+/* Scale variants */
+.avatar-sprite.sm { transform: scale(1.5); }
+.avatar-sprite.lg { transform: scale(3); }
+
+/* Walk animation — diaktifkan JS */
+.avatar-sprite.walking {
+  animation: walk-cycle 0.5s steps(4) infinite;
+}
+
+@keyframes walk-cycle {
+  from { background-position-x: 0; }
+  to   { background-position-x: var(--sheet-width, -128px); }
+}
+
+/* ── Pick action bar (bottom sticky) ──────────────────── */
+.pick-action-bar {
+  position: sticky;
+  bottom: 20px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  box-shadow: var(--shadow), 0 0 0 1px rgba(124,92,252,0.1);
+  z-index: 5;
+}
+
+.selected-preview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.avatar-sprite-wrap.sm {
+  width: 36px;
+  height: 36px;
+  overflow: hidden;
+}
+
+/* ── Success step ──────────────────────────────────────── */
+.success-card {
+  border-color: rgba(124, 92, 252, 0.4);
+  box-shadow: 0 0 40px var(--accent-glow);
+}
+
+.success-avatar-wrap {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 120px;
+  margin-bottom: 8px;
+}
+
+.success-tip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(124,92,252,0.08);
+  border: 1px solid rgba(124,92,252,0.2);
+  border-radius: var(--radius);
+  padding: 10px 16px;
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 16px 0;
+}
+
+.tip-icon { font-size: 16px; }
+
+/* ── Spinner ───────────────────────────────────────────── */
+.spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Toast ─────────────────────────────────────────────── */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(8px);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 20px;
+  font-size: 13px;
+  color: var(--text);
+  box-shadow: var(--shadow);
+  z-index: 100;
+  opacity: 0;
+  transition: opacity 0.2s, transform 0.2s;
+  pointer-events: none;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.toast.toast-success { border-color: rgba(52,211,153,0.4); color: var(--green); }
+.toast.toast-error   { border-color: rgba(248,113,113,0.4); color: var(--red); }
+
+/* ── Responsive ────────────────────────────────────────── */
+@media (max-width: 520px) {
+  .step-card { padding: 32px 20px; }
+  .input-group { flex-direction: column; }
+  .pick-action-bar { flex-direction: column; align-items: stretch; }
+  .btn-lg { width: 100%; }
+  .selected-preview { justify-content: center; }
+  .avatar-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
+}
+
+/* ── Reduced motion ────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .avatar-sprite.walking { animation: none; }
+  .btn { transition: none; }
+  .avatar-card { transition: none; }
+}
