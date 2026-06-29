@@ -15,6 +15,18 @@ require('./adapters/vjoy')      // Aktifkan vJoy/ViGEm virtual gamepad adapter
 
 const { saweriаWebhookHandler } = require('./adapters/saweria')
 const { trakteerWebhookHandler } = require('./adapters/trakteer')
+
+// ── Avatar Module (opsional) ────────────────────────────────
+// Aktifkan dengan AVATAR_MODULE_ENABLED=true di .env
+let avatarModule = null
+if (process.env.AVATAR_MODULE_ENABLED === 'true') {
+  try {
+    avatarModule = require('../avatar/server')
+  } catch (err) {
+    console.error('❌ [Avatar] Gagal load avatar module:', err.message)
+    console.error('   Pastikan folder avatar/ ada dan sudah npm install di dalamnya.')
+  }
+}
 const apiRouter     = require('./routes/api')
 const pluginRouter  = require('./routes/plugin')
 const envRouter     = require('./routes/env')
@@ -101,6 +113,12 @@ io.on('connection', (socket) => {
 eventBus.on('donation',       (donation) => { io.emit('donation', donation) })
 eventBus.on('test_log',       (log)      => { io.emit('test_log', log) })
 eventBus.on('config_updated', ()          => { io.emit('config_updated', {}) })
+
+// Forward chat ke eventBus agar avatar module bisa update last_seen viewer
+// Emit ini dari adapter YouTube polling atau chat handler yang sudah ada
+// Format: eventBus.emit('chat_message', { username: 'Clonze', message: 'halo!' })
+eventBus.on('chat_message', (chat) => { io.emit('chat_message', chat) })
+
 eventBus.on('effect',   ({ effect, donation }) => {
   io.emit('effect', {
     id:         effect.id,
@@ -145,6 +163,16 @@ server.listen(PORT, () => {
 ║  Mode: ${(process.env.NODE_ENV || 'development').padEnd(39)}║
 ╚${line}╝
   `)
+
+  // ── Mount Avatar Module ─────────────────────────────────
+  if (avatarModule) {
+    avatarModule.init({ app, io, eventBus })
+    const avatarPort = process.env.AVATAR_PORT || 3500
+    console.log(`👾 [Avatar] Module aktif`)
+    console.log(`   Dashboard avatar : http://localhost:${PORT}/avatar/dashboard`)
+    console.log(`   Overlay OBS      : http://localhost:${PORT}/avatar/overlay`)
+    console.log(`   Halaman pick     : http://localhost:${PORT}/avatar/pick`)
+  }
 })
 
 // Handle port bentrok — tampilkan pesan yang jelas

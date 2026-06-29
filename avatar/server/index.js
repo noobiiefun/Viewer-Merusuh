@@ -1,105 +1,121 @@
 /**
  * avatar/server/index.js
- * ─────────────────────────────────────────────
- * Entry point Avatar Overlay module.
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Entry point Avatar Module.
  *
- * Yang dilakukan:
- *   1. Load .env
- *   2. Inisialisasi SQLite (semua tabel)
- *   3. Buat Express app + HTTP server + Socket.IO
- *   4. Serve static files: /avatars, /overlay, /pick, /dashboard
- *   5. Mount routes /api dan /admin
- *   6. Inisialisasi YtPoller dan pasang ke app.locals
- *   7. Listen di port 3500
+ * DUA MODE:
+ *
+ * A) STANDALONE — jalankan langsung:
+ *      cd avatar && node server/index.js
+ *    Server berdiri sendiri di PORT (default 3500).
+ *
+ * B) INTEGRATED — di-require oleh server utama Viewer Merusuh:
+ *      const avatarModule = require('../avatar/server');
+ *      avatarModule.init({ app, io, eventBus });
+ *    Avatar module mount route-nya ke Express app utama,
+ *    pakai io yang sama, dan hook ke eventBus.
+ *
+ * Cara bedakan: jika require.main === module → standalone.
  */
 
-require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
+'use strict';
 
-const express    = require('express');
-const http       = require('http');
+require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
+
+const express = require('express');
+const http    = require('http');
+const path    = require('path');
 const { Server } = require('socket.io');
-const path       = require('path');
 
-const { setupDB } = require('./db/setup');
-const YtPoller    = require('./core/ytPoller');
-
-// ─── 1. Inisialisasi DB ───────────────────────────────────────────────────────
-setupDB();
-
-// ─── 2. Express + Socket.IO ──────────────────────────────────────────────────
-const app    = express();
-const server = http.createServer(app);
-const io     = new Server(server, {
-  cors: { origin: '*' }  // longgar untuk dev; perketat untuk production
-});
-
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
-
-// ─── 3. Static Files ─────────────────────────────────────────────────────────
-const PUBLIC = path.join(__dirname, '../public');
-
-app.use('/avatars',   express.static(path.join(PUBLIC, 'avatars')));
-app.use('/overlay',   express.static(path.join(PUBLIC, 'overlay')));
-app.use('/pick',      express.static(path.join(PUBLIC, 'pick')));
-app.use('/dashboard', express.static(path.join(PUBLIC, 'dashboard')));
-
-// ─── 4. YtPoller — inisialisasi dan simpan ke app.locals ─────────────────────
-// app.locals.polling  → state { isPolling, videoId } dibaca oleh /api/status
-// app.locals.poller   → instance YtPoller, dipakai oleh /admin/polling/start|stop
-const poller = new YtPoller(io, app);
-
-app.locals.polling = { isPolling: false, videoId: null };
-app.locals.poller  = poller;
-
-// ─── 5. Routes ───────────────────────────────────────────────────────────────
-const apiRoutes   = require('./routes/api');
+const { initDB }  = require('./db/setup');
 const adminRoutes = require('./routes/admin');
-app.use('/api',   apiRoutes);
-app.use('/admin', adminRoutes);
+const publicRoutes = require('./routes/public'); // GET /api/viewers/check, /api/avatars, POST /api/viewers/pick
+const ytPoller    = require('./core/ytPoller');
+const { initViewerMerusuhIntegration } = require('./integration/viewerMerusuh');
 
-// Root — konfirmasi server jalan
-app.get('/', (_req, res) => {
-  res.json({
-    status:  'ok',
-    module:  'Avatar Overlay',
-    version: '0.1.0',
-    endpoints: {
-      overlay:   '/overlay',
-      pick:      '/pick',
-      dashboard: '/dashboard',
-      avatars:   '/avatars/<filename>',
-      api:       '/api/status',
-    }
+// ─── Mount routes ke Express app ─────────────────────────────────────────────
+function mountRoutes(app, io) {
+  // Static: sprite PNG
+  app.use('/avatars', express.static(path.join(__dirname, '../public/avatars')));
+
+  // Static: dashboard, overlay, pick pages
+  app.use('/dashboard', express.static(path.join(__dirname, '../public/dashboard')));
+  app.use('/overlay',   express.static(path.join(__dirname, '../public/overlay')));
+  app.use('/pick',      express.static(path.join(__dirname, '../public/pick')));
+
+  // REST API
+  app.use('/admin', adminRoutes);
+  app.use('/api',   publicRoutes);
+
+  // Expose io ke routes (untuk broadcast di admin.js)
+  app.set('io', io);
+
+  // Expose poller ke routes
+  app.locals.poller = ytPoller;
+}
+
+// ─── Setup Socket.IO events ───────────────────────────────────────────────────
+function initSocketEvents(io) {
+  io.on('connection', (socket) => {
+    // Kirim status polling saat client connect
+    const stats = ytPoller.getStats ? ytPoller.getStats() : { isRunning: false };
+    socket.emit('polling_status', stats);
   });
-});
 
-// ─── 6. Socket.IO ────────────────────────────────────────────────────────────
-io.on('connection', (socket) => {
-  console.log(`[Avatar IO] Client terhubung: ${socket.id}`);
+  // YtPoller emit events ke io langsung — set io ke poller
+  if (ytPoller.setIo) ytPoller.setIo(io);
+}
 
-  // Kirim state polling terkini ke client yang baru connect
-  socket.emit('polling_status', app.locals.polling);
+// ─── MODE B: Init dari server utama ──────────────────────────────────────────
+function init({ app, io, eventBus }) {
+  console.log('[Avatar] Initializing in INTEGRATED mode...');
 
-  socket.on('disconnect', () => {
-    console.log(`[Avatar IO] Client putus: ${socket.id}`);
+  // Init DB
+  initDB();
+
+  // Mount routes ke app utama
+  mountRoutes(app, io);
+
+  // Init Socket events
+  initSocketEvents(io);
+
+  // Hook ke eventBus Viewer Merusuh
+  if (eventBus) {
+    initViewerMerusuhIntegration(eventBus, io);
+  } else {
+    console.warn('[Avatar] eventBus tidak diberikan — integrasi donasi otomatis tidak aktif.');
+  }
+
+  console.log('[Avatar] Ready. Routes mounted ke server utama.');
+  return { ytPoller };
+}
+
+// ─── MODE A: Standalone ───────────────────────────────────────────────────────
+if (require.main === module) {
+  const PORT = process.env.AVATAR_PORT || process.env.PORT || 3500;
+
+  const app    = express();
+  const server = http.createServer(app);
+  const io     = new Server(server, {
+    cors: { origin: '*', methods: ['GET', 'POST'] },
   });
-});
 
-// ─── 7. Start Server ─────────────────────────────────────────────────────────
-const PORT = process.env.PORT || 3500;
+  app.use(express.json());
+  app.use(express.urlencoded({ extended: false }));
 
-server.listen(PORT, () => {
-  console.log('');
-  console.log('╔══════════════════════════════════════════╗');
-  console.log('║       Avatar Overlay — v0.1.0            ║');
-  console.log(`║  http://localhost:${PORT}                    ║`);
-  console.log('║                                          ║');
-  console.log('║  Overlay   → /overlay                   ║');
-  console.log('║  Pick      → /pick                      ║');
-  console.log('║  Dashboard → /dashboard                  ║');
-  console.log('╚══════════════════════════════════════════╝');
-  console.log('');
-});
+  initDB();
+  mountRoutes(app, io);
+  initSocketEvents(io);
 
-module.exports = { app, io, poller };
+  // Redirect root → dashboard
+  app.get('/', (req, res) => res.redirect('/dashboard'));
+
+  server.listen(PORT, () => {
+    console.log(`[Avatar] Standalone server running at http://localhost:${PORT}`);
+    console.log(`[Avatar]   Dashboard : http://localhost:${PORT}/dashboard`);
+    console.log(`[Avatar]   Overlay   : http://localhost:${PORT}/overlay`);
+    console.log(`[Avatar]   Pick page : http://localhost:${PORT}/pick`);
+  });
+}
+
+module.exports = { init };
