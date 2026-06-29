@@ -571,4 +571,104 @@ router.get('/chat-log', (req, res) => {
   ok(res, { logs, count: logs.length });
 });
 
+// ═════════════════════════════════════════════════════════════════════════════
+// CONFIG MANAGEMENT
+// GET  /admin/config        → baca config aktif
+// POST /admin/config        → update config (partial), tulis ke .env
+// POST /admin/config/reset  → reset ke default
+// ═════════════════════════════════════════════════════════════════════════════
+
+const CONFIG_DEFAULTS = {
+  MAX_AVATARS:        8,
+  BUBBLE_DURATION_MS: 5000,
+  IDLE_DURATION_MS:   12000,
+  AVATAR_SCALE:       2,
+  POLL_INTERVAL_MS:   3000,
+};
+
+const CONFIG_EDITABLE_KEYS = Object.keys(CONFIG_DEFAULTS);
+
+const CONFIG_META = {
+  MAX_AVATARS:        { label: 'Maksimal Avatar di Layar',    hint: 'Jumlah avatar yang bisa tampil bersamaan di overlay.',              min: 1,    max: 20,    step: 1,   unit: 'avatar' },
+  BUBBLE_DURATION_MS: { label: 'Durasi Speech Bubble',        hint: 'Berapa lama teks chat muncul di atas kepala avatar.',               min: 1000, max: 30000, step: 500, unit: 'ms'     },
+  IDLE_DURATION_MS:   { label: 'Durasi Idle Sebelum Exit',    hint: 'Berapa lama avatar diam di layar sebelum berjalan keluar.',         min: 3000, max: 60000, step: 1000,unit: 'ms'     },
+  AVATAR_SCALE:       { label: 'Pixel Scale Avatar',          hint: 'Pengali ukuran sprite. Scale 2 = tampil 64×96px di overlay.',       min: 1,    max: 6,     step: 1,   unit: 'x'      },
+  POLL_INTERVAL_MS:   { label: 'Interval Polling Chat',       hint: 'Seberapa sering server memeriksa pesan chat baru dari YouTube.',    min: 1000, max: 10000, step: 500, unit: 'ms'     },
+};
+
+function readConfig() {
+  const config = {};
+  for (const key of CONFIG_EDITABLE_KEYS) {
+    const val = process.env[key];
+    config[key] = val !== undefined ? Number(val) : CONFIG_DEFAULTS[key];
+  }
+  return config;
+}
+
+function writeConfig(updates) {
+  const envPath = path.resolve(process.cwd(), '.env');
+  let envContent = '';
+  try { envContent = fs.readFileSync(envPath, 'utf8'); } catch (_) {}
+
+  const lines = envContent.split('\n');
+  for (const [key, value] of Object.entries(updates)) {
+    if (!CONFIG_EDITABLE_KEYS.includes(key)) continue;
+    process.env[key] = String(value);
+    const idx = lines.findIndex(l => l.startsWith(`${key}=`) || l.startsWith(`# ${key}=`));
+    if (idx >= 0) lines[idx] = `${key}=${value}`;
+    else lines.push(`${key}=${value}`);
+  }
+  fs.writeFileSync(envPath, lines.join('\n'), 'utf8');
+}
+
+// GET /admin/config
+router.get('/config', (req, res) => {
+  const current = readConfig();
+  const meta    = {};
+  for (const key of CONFIG_EDITABLE_KEYS) {
+    meta[key] = { ...CONFIG_META[key], default: CONFIG_DEFAULTS[key] };
+  }
+  ok(res, { current, meta });
+});
+
+// POST /admin/config
+router.post('/config', (req, res) => {
+  const updates = {};
+  const errors  = [];
+
+  for (const key of CONFIG_EDITABLE_KEYS) {
+    if (req.body[key] === undefined) continue;
+    const val = Number(req.body[key]);
+    if (isNaN(val) || val < 0) { errors.push(`${key}: nilai tidak valid`); continue; }
+    updates[key] = val;
+  }
+
+  if (errors.length)             return fail(res, errors.join('; '));
+  if (!Object.keys(updates).length) return fail(res, 'Tidak ada perubahan yang dikirim.');
+
+  try {
+    writeConfig(updates);
+    const io = req.app.get('io');
+    if (io) io.emit('config_updated', updates);
+    ok(res, {
+      message: 'Config berhasil disimpan. Perubahan aktif sekarang (overlay perlu refresh untuk scale).',
+      data: readConfig(),
+    });
+  } catch (e) {
+    fail(res, `Gagal menyimpan .env: ${e.message}`, 500);
+  }
+});
+
+// POST /admin/config/reset
+router.post('/config/reset', (req, res) => {
+  try {
+    writeConfig(CONFIG_DEFAULTS);
+    const io = req.app.get('io');
+    if (io) io.emit('config_updated', CONFIG_DEFAULTS);
+    ok(res, { message: 'Config direset ke nilai default.', data: readConfig() });
+  } catch (e) {
+    fail(res, e.message, 500);
+  }
+});
+
 module.exports = router;

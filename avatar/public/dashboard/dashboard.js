@@ -29,6 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initTiersTab();
   initAvatarsTab();
   initEventsTab();
+  initConfigTab();
   initModals();
   loadAll();
 });
@@ -42,6 +43,7 @@ function initTabs() {
       document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
       btn.classList.add('active');
       document.getElementById(`tab-${tab}`).classList.add('active');
+      if (tab === 'config') loadConfig();
     });
   });
 }
@@ -70,6 +72,20 @@ function initSocket() {
 
     socket.on('viewer_registered', () => loadViewers());
     socket.on('tier_updated', () => loadTiers());
+    socket.on('config_updated', (updates) => {
+      for (const [key, val] of Object.entries(updates)) {
+        configState.current[key] = val;
+        if (!configState.dirty) {
+          configState.pending[key] = val;
+          const slider = document.getElementById(`slider-${key}`);
+          const input  = document.getElementById(`input-${key}`);
+          if (slider) slider.value = val;
+          if (input)  input.value  = val;
+          updateHumanLabel(key, val);
+          if (key === 'AVATAR_SCALE') updateScalePreview(val);
+        }
+      }
+    });
 
   } catch (e) {
     setServerStatus(false);
@@ -891,3 +907,193 @@ function initModals() {
 
 function openModal(id)  { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// ══════════════════════════════════════════════
+// CONFIG PANEL
+// ══════════════════════════════════════════════
+
+const configState = {
+  current: {}, pending: {}, meta: {}, dirty: false,
+};
+
+const CONFIG_KEYS_MS = ['BUBBLE_DURATION_MS', 'IDLE_DURATION_MS', 'POLL_INTERVAL_MS'];
+const CONFIG_ALL_KEYS = ['MAX_AVATARS', 'BUBBLE_DURATION_MS', 'IDLE_DURATION_MS', 'AVATAR_SCALE', 'POLL_INTERVAL_MS'];
+
+function initConfigTab() {
+  CONFIG_ALL_KEYS.forEach(syncSliderInput);
+
+  document.querySelectorAll('.btn-reset-single').forEach(btn => {
+    btn.addEventListener('click', () => resetSingleConfig(btn.dataset.key));
+  });
+
+  const saveBtn  = document.getElementById('btn-config-save');
+  const resetBtn = document.getElementById('btn-config-reset-all');
+  if (saveBtn)  saveBtn.addEventListener('click', saveConfig);
+  if (resetBtn) resetBtn.addEventListener('click', resetAllConfig);
+}
+
+async function loadConfig() {
+  const loadingEl = document.getElementById('config-loading');
+  const formEl    = document.getElementById('config-form');
+  if (!loadingEl || !formEl) return;
+
+  loadingEl.style.display = '';
+  formEl.style.display    = 'none';
+
+  try {
+    const res  = await apiFetch('/admin/config');
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message);
+
+    configState.current = { ...json.current };
+    configState.pending = { ...json.current };
+    configState.meta    = json.meta;
+
+    applyConfigToUI(configState.current);
+    setConfigDirty(false);
+    loadingEl.style.display = 'none';
+    formEl.style.display    = '';
+  } catch (err) {
+    loadingEl.innerHTML = `<span style="color:var(--red)">Gagal memuat config: ${err.message}</span>`;
+  }
+}
+
+function applyConfigToUI(values) {
+  for (const [key, val] of Object.entries(values)) {
+    const slider = document.getElementById(`slider-${key}`);
+    const input  = document.getElementById(`input-${key}`);
+    if (slider) slider.value = val;
+    if (input)  input.value  = val;
+    updateHumanLabel(key, val);
+    if (key === 'AVATAR_SCALE') updateScalePreview(val);
+  }
+}
+
+function msToHuman(ms) {
+  if (ms < 1000) return `${ms} ms`;
+  const s = ms / 1000;
+  return s === Math.floor(s) ? `${s} detik` : `${s.toFixed(1)} detik`;
+}
+
+function updateHumanLabel(key, val) {
+  const el = document.getElementById(`human-${key}`);
+  if (!el) return;
+  el.textContent = CONFIG_KEYS_MS.includes(key) ? msToHuman(Number(val)) : '';
+}
+
+function updateScalePreview(scale) {
+  const box   = document.getElementById('scale-preview-box');
+  const label = document.getElementById('scale-preview-label');
+  if (!box || !label) return;
+  const w = 32 * scale, h = 48 * scale;
+  const ds = Math.min(1, 96 / w);
+  box.style.width  = `${Math.round(w * ds)}px`;
+  box.style.height = `${Math.round(h * ds)}px`;
+  label.textContent = `${w} × ${h} px`;
+}
+
+function syncSliderInput(key) {
+  const slider = document.getElementById(`slider-${key}`);
+  const input  = document.getElementById(`input-${key}`);
+  if (!slider || !input) return;
+
+  slider.addEventListener('input', () => {
+    input.value = slider.value;
+    onConfigChange(key, Number(slider.value));
+  });
+  input.addEventListener('input', () => {
+    const meta = configState.meta[key] || {};
+    let val = Number(input.value);
+    if (isNaN(val)) return;
+    if (meta.min !== undefined) val = Math.max(meta.min, val);
+    if (meta.max !== undefined) val = Math.min(meta.max, val);
+    slider.value = val;
+    onConfigChange(key, val);
+  });
+}
+
+function onConfigChange(key, val) {
+  configState.pending[key] = val;
+  updateHumanLabel(key, val);
+  if (key === 'AVATAR_SCALE') updateScalePreview(val);
+
+  const isDirty = CONFIG_ALL_KEYS.some(k => configState.pending[k] !== configState.current[k]);
+  setConfigDirty(isDirty);
+
+  const row = document.getElementById(`config-row-${key}`);
+  if (row) row.classList.toggle('config-row-changed', val !== configState.current[key]);
+}
+
+function setConfigDirty(dirty) {
+  configState.dirty = dirty;
+  const badge   = document.getElementById('config-unsaved-badge');
+  const saveBtn = document.getElementById('btn-config-save');
+  if (badge)   badge.style.display = dirty ? '' : 'none';
+  if (saveBtn) saveBtn.disabled    = !dirty;
+}
+
+function resetSingleConfig(key) {
+  const meta = configState.meta[key];
+  if (!meta) return;
+  const def = meta.default;
+  const slider = document.getElementById(`slider-${key}`);
+  const input  = document.getElementById(`input-${key}`);
+  if (slider) slider.value = def;
+  if (input)  input.value  = def;
+  onConfigChange(key, def);
+}
+
+async function saveConfig() {
+  const feedbackEl = document.getElementById('config-feedback');
+  const saveBtn    = document.getElementById('btn-config-save');
+  saveBtn.disabled = true;
+  if (feedbackEl) { feedbackEl.textContent = ''; feedbackEl.className = 'form-feedback'; }
+
+  const changes = {};
+  for (const key of CONFIG_ALL_KEYS) {
+    if (configState.pending[key] !== configState.current[key])
+      changes[key] = configState.pending[key];
+  }
+
+  try {
+    const res  = await apiFetch('/admin/config', { method: 'POST', body: JSON.stringify(changes) });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message);
+
+    configState.current = { ...json.data };
+    configState.pending = { ...json.data };
+    setConfigDirty(false);
+    document.querySelectorAll('.config-row-changed').forEach(el => el.classList.remove('config-row-changed'));
+
+    if (feedbackEl) {
+      feedbackEl.textContent = '✓ ' + json.message;
+      feedbackEl.className   = 'form-feedback ok';
+      setTimeout(() => { if (feedbackEl) feedbackEl.textContent = ''; }, 5000);
+    }
+    toast('Config disimpan!', 'ok');
+  } catch (err) {
+    if (feedbackEl) {
+      feedbackEl.textContent = '✗ ' + (err.message || 'Gagal menyimpan.');
+      feedbackEl.className   = 'form-feedback err';
+    }
+    saveBtn.disabled = false;
+  }
+}
+
+async function resetAllConfig() {
+  if (!confirm('Reset semua config ke nilai default?')) return;
+  try {
+    const res  = await apiFetch('/admin/config/reset', { method: 'POST' });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message);
+
+    configState.current = { ...json.data };
+    configState.pending = { ...json.data };
+    applyConfigToUI(json.data);
+    setConfigDirty(false);
+    document.querySelectorAll('.config-row-changed').forEach(el => el.classList.remove('config-row-changed'));
+    toast('Config direset ke default.', 'ok');
+  } catch (err) {
+    toast('Gagal reset: ' + err.message, 'err');
+  }
+}

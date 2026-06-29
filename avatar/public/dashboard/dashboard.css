@@ -869,3 +869,190 @@ html, body {
   .events-grid { grid-template-columns: 1fr; }
   .event-log-card { grid-column: 1; }
 }
+
+/* ══════════════════════════════════════════════
+   CONFIG PANEL
+══════════════════════════════════════════════ */
+
+.config-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 40px;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.config-section {
+  background: var(--card-bg, #1e2535);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+
+.config-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(0,0,0,0.12);
+}
+
+.config-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s;
+}
+.config-row:last-child { border-bottom: none; }
+.config-row:hover { background: rgba(255,255,255,0.02); }
+.config-row-changed {
+  background: rgba(124,92,252,0.06) !important;
+  border-left: 3px solid var(--accent, #7c5cfc);
+}
+
+.config-info { flex: 0 0 260px; }
+.config-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 3px;
+}
+.config-hint {
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.config-control {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Slider */
+.config-slider {
+  flex: 1;
+  min-width: 100px;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  outline: none;
+  cursor: pointer;
+}
+.config-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: var(--accent, #7c5cfc);
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+.config-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+  box-shadow: 0 0 0 4px rgba(124,92,252,0.25);
+}
+.config-slider::-moz-range-thumb {
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: var(--accent, #7c5cfc);
+  border: none;
+  cursor: pointer;
+}
+
+/* Number input */
+.config-value-wrap { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.config-number {
+  width: 72px;
+  background: var(--input-bg, #0d1117);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 5px 8px;
+  text-align: center;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.config-number:focus { border-color: var(--accent, #7c5cfc); }
+.config-unit { font-size: 11px; color: var(--text-secondary); flex-shrink: 0; }
+
+/* Human label */
+.config-value-human {
+  font-size: 11px;
+  color: var(--accent, #7c5cfc);
+  flex-shrink: 0;
+  min-width: 55px;
+  font-weight: 600;
+}
+
+/* Scale preview */
+.config-scale-preview { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.scale-preview-box {
+  background: var(--accent, #7c5cfc);
+  opacity: 0.35;
+  border-radius: 2px;
+  transition: width 0.2s, height 0.2s;
+  min-width: 4px;
+  min-height: 6px;
+}
+.scale-preview-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  min-width: 80px;
+}
+
+/* Reset single button */
+.btn-reset-single {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  width: 28px; height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.15s, color 0.15s;
+}
+.btn-reset-single:hover {
+  border-color: var(--accent, #7c5cfc);
+  color: var(--accent, #7c5cfc);
+}
+
+/* Action bar */
+.config-action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 0;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.config-save-group { display: flex; align-items: center; gap: 12px; }
+.unsaved-badge {
+  font-size: 12px;
+  color: var(--yellow, #fbbf24);
+  font-weight: 600;
+}
+
+/* Responsive */
+@media (max-width: 720px) {
+  .config-row { flex-direction: column; align-items: flex-start; }
+  .config-info { flex: none; width: 100%; }
+  .config-control { width: 100%; }
+}
