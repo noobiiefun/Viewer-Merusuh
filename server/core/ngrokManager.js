@@ -1,130 +1,175 @@
-/**
- * ngrokManager.js
- * Mengelola lifecycle tunnel ngrok (start/stop/status) menggunakan SDK resmi @ngrok/ngrok.
- * Tidak perlu user download ngrok.exe terpisah — binary di-manage otomatis oleh package ini.
- *
- * State tunnel disimpan in-memory (hilang saat server restart, makanya ada NGROK_AUTOSTART
- * di .env supaya tunnel otomatis nyala lagi tiap server start kalau token sudah disimpan).
- */
+// server/core/ngrokManager.js
+// Manajemen tunnel ngrok built-in — tidak perlu install ngrok manual
+// Pakai @ngrok/ngrok yang auto-download binary saat pertama dipakai
 
-const eventBus = require('./eventBus');
+const fs   = require('fs')
+const path = require('path')
 
-let ngrokLib = null; // lazy require, supaya server tetap jalan walau package belum ke-install
-let currentListener = null;
-let state = {
-  status: 'stopped', // 'stopped' | 'starting' | 'connected' | 'error'
-  url: null,
-  startedAt: null,
-  error: null,
-};
+let ngrokLib  = null   // lazy-load @ngrok/ngrok
+let listener  = null   // instance tunnel aktif
+let publicUrl = null
+let isStarting = false
+let lastError  = null
 
-function getNgrokLib() {
-  if (!ngrokLib) {
-    try {
-      ngrokLib = require('@ngrok/ngrok');
-    } catch (err) {
-      throw new Error(
-        "Package '@ngrok/ngrok' belum terinstall. Jalankan: npm install @ngrok/ngrok"
-      );
-    }
+// ── Path .env (sama dengan yang dipakai env.js) ─────────────────────
+const ENV_PATH = process.env.ENV_PATH || path.join(__dirname, '../../.env')
+
+function lazyLoadNgrok() {
+  if (ngrokLib) return ngrokLib
+  try {
+    ngrokLib = require('@ngrok/ngrok')
+    return ngrokLib
+  } catch (err) {
+    throw new Error('@ngrok/ngrok belum terinstall. Jalankan: npm install @ngrok/ngrok')
   }
-  return ngrokLib;
 }
 
-function getState() {
-  return { ...state };
+// ── Baca authtoken dari .env ─────────────────────────────────────────
+function readAuthtoken() {
+  if (!fs.existsSync(ENV_PATH)) return ''
+  const lines = fs.readFileSync(ENV_PATH, 'utf8').split('\n')
+  for (const line of lines) {
+    const m = line.trim().match(/^NGROK_AUTHTOKEN=(.*)$/)
+    if (m) return m[1].trim()
+  }
+  return ''
 }
 
-function setState(patch) {
-  state = { ...state, ...patch };
-  eventBus.emit('ngrok_status', getState());
+function readAutostart() {
+  if (!fs.existsSync(ENV_PATH)) return false
+  const lines = fs.readFileSync(ENV_PATH, 'utf8').split('\n')
+  for (const line of lines) {
+    const m = line.trim().match(/^NGROK_AUTOSTART=(.*)$/)
+    if (m) return m[1].trim() === 'true'
+  }
+  return false
 }
 
-/**
- * Mulai tunnel ngrok ke port lokal server.
- * @param {object} opts
- * @param {string} opts.authtoken - ngrok authtoken
- * @param {number} opts.port - port lokal yang mau di-tunnel (default: PORT server, biasanya 3000)
- */
-async function start({ authtoken, port }) {
-  if (!authtoken) {
-    throw new Error('Authtoken ngrok belum diisi.');
+// ── Tulis/update key di .env ──────────────────────────────────────────
+function writeEnvKey(key, value) {
+  let lines = []
+  if (fs.existsSync(ENV_PATH)) {
+    lines = fs.readFileSync(ENV_PATH, 'utf8').split('\n')
   }
-  if (currentListener) {
-    // sudah jalan, stop dulu sebelum start ulang (misal token berubah)
-    await stop();
+  const idx = lines.findIndex(l => l.trim().startsWith(`${key}=`))
+  const newLine = `${key}=${value}`
+  if (idx >= 0) lines[idx] = newLine
+  else lines.push(newLine)
+  fs.writeFileSync(ENV_PATH, lines.join('\n'))
+}
+
+// ── Start tunnel ───────────────────────────────────────────────────────
+async function start({ authtoken, port } = {}) {
+  if (listener) {
+    return { url: publicUrl, alreadyRunning: true }
+  }
+  if (isStarting) {
+    throw new Error('Tunnel sedang proses connect, tunggu sebentar')
   }
 
-  setState({ status: 'starting', error: null });
+  isStarting = true
+  lastError  = null
 
   try {
-    const ngrok = getNgrokLib();
-    const listener = await ngrok.forward({
-      addr: port,
-      authtoken,
-    });
+    const ngrok = lazyLoadNgrok()
+    const token = authtoken || readAuthtoken()
+    const targetPort = port || process.env.PORT || 3000
 
-    currentListener = listener;
-    const url = listener.url();
+    if (!token) {
+      throw new Error('Authtoken belum diisi. Ambil di https://dashboard.ngrok.com/get-started/your-authtoken')
+    }
 
-    setState({
-      status: 'connected',
-      url,
-      startedAt: Date.now(),
-      error: null,
-    });
+    listener = await ngrok.connect({
+      addr: Number(targetPort),
+      authtoken: token,
+    })
 
-    return { url };
+    publicUrl = listener.url()
+
+    // Simpan authtoken ke .env kalau dikirim manual (bukan dari .env yang sudah ada)
+    if (authtoken) writeEnvKey('NGROK_AUTHTOKEN', authtoken)
+
+    console.log(`🌐 [Ngrok] Tunnel aktif: ${publicUrl} → localhost:${targetPort}`)
+    return { url: publicUrl, alreadyRunning: false }
+
   } catch (err) {
-    setState({ status: 'error', error: err.message || String(err) });
-    throw err;
+    lastError = err.message
+    listener  = null
+    publicUrl = null
+    console.error('❌ [Ngrok] Gagal start tunnel:', err.message)
+    throw err
+  } finally {
+    isStarting = false
   }
 }
 
+// ── Stop tunnel ────────────────────────────────────────────────────────
 async function stop() {
-  if (currentListener) {
-    try {
-      await currentListener.close();
-    } catch (_) {
-      // ignore close error, tetap reset state
-    }
-    currentListener = null;
+  if (!listener) return { stopped: false }
+  try {
+    await listener.close()
+  } catch (err) {
+    console.warn('[Ngrok] Warning saat close:', err.message)
   }
-  setState({ status: 'stopped', url: null, startedAt: null, error: null });
+  listener  = null
+  publicUrl = null
+  console.log('🌐 [Ngrok] Tunnel dimatikan')
+  return { stopped: true }
 }
 
-/**
- * Test apakah tunnel benar-benar reachable dari internet.
- * Hit endpoint /api/ngrok/ping-target (lihat routes/ngrok.js) lewat URL publik ngrok itu sendiri.
- */
-async function testConnection() {
-  if (!state.url) {
-    throw new Error('Tunnel belum aktif. Connect dulu sebelum test.');
+// ── Status ─────────────────────────────────────────────────────────────
+function getStatus() {
+  return {
+    connected:   !!listener,
+    starting:    isStarting,
+    url:         publicUrl,
+    lastError,
+    hasToken:    !!readAuthtoken(),
+    autostart:   readAutostart(),
   }
+}
 
-  const target = `${state.url}/api/ngrok/ping-target`;
+// ── Set autostart flag ───────────────────────────────────────────────
+function setAutostart(enabled) {
+  writeEnvKey('NGROK_AUTOSTART', enabled ? 'true' : 'false')
+}
 
-  // Pakai global fetch (Node 18+)
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10000);
+// ── Test koneksi via URL publik (round-trip beneran) ──────────────────
+async function testPublicReachability() {
+  if (!publicUrl) throw new Error('Tunnel belum aktif')
+
+  const testUrl = `${publicUrl}/api/status`
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 10000)
 
   try {
-    const res = await fetch(target, { signal: controller.signal });
-    clearTimeout(timeout);
-
-    if (!res.ok) {
-      return { ok: false, message: `Server merespons status ${res.status}` };
-    }
-
-    const data = await res.json();
-    return { ok: true, message: 'Tunnel aktif dan bisa diakses dari internet.', data };
+    const res = await fetch(testUrl, { signal: controller.signal })
+    clearTimeout(timeout)
+    if (!res.ok) throw new Error(`Server respond dengan status ${res.status}`)
+    const data = await res.json()
+    return { reachable: true, url: testUrl, data }
   } catch (err) {
-    clearTimeout(timeout);
+    clearTimeout(timeout)
     if (err.name === 'AbortError') {
-      return { ok: false, message: 'Timeout — tunnel tidak merespons dalam 10 detik.' };
+      throw new Error('Timeout — URL publik tidak bisa diakses dalam 10 detik')
     }
-    return { ok: false, message: err.message || 'Gagal connect ke tunnel.' };
+    throw err
   }
 }
 
-module.exports = { start, stop, getState, testConnection };
+// ── Cleanup saat process exit ────────────────────────────────────────
+process.on('exit', () => {
+  if (listener) {
+    try { listener.close() } catch {}
+  }
+})
+
+module.exports = {
+  start,
+  stop,
+  getStatus,
+  setAutostart,
+  testPublicReachability,
+  readAuthtoken,
+  readAutostart,
+}
