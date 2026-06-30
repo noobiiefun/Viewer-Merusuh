@@ -1,11 +1,22 @@
 // electron-builder.config.js
+// Config electron-builder (dijalankan dari ROOT project)
 
 module.exports = {
   appId:           'com.viewermerusuh.app',
   productName:     'Viewer Merusuh',
   copyright:       'MIT License',
-  electronVersion: '28.3.3',
+  electronVersion: '28.3.3',  // harus exact, tanpa ^ atau ~
   executableName:  'viewer-merusuh',
+
+  // ════════════════════════════════════════════════════════════════
+  // PENTING: Disable rebuild native modules
+  // better-sqlite3 v12 sudah punya prebuilt binary yang compatible
+  // dengan Electron 28 (ABI match). Rebuild manual akan GAGAL tanpa
+  // Visual Studio karena node-gyp butuh compiler.
+  // ════════════════════════════════════════════════════════════════
+  npmRebuild: false,
+  buildDependenciesFromSource: false,
+  nodeGypRebuild: false,
 
   icon: 'electron/assets/icon.png',
 
@@ -14,41 +25,16 @@ module.exports = {
     buildResources: 'electron/assets',
   },
 
-  // ── FILES masuk ke dalam app.asar ─────────────────────────────────
-  // electron-builder membaca dari ROOT project dan menaruhnya di
-  // resources/app/ (atau di dalam app.asar)
-  //
-  // Format: path relatif dari ROOT → masuk ke resources/app/<path>
-  // Jadi 'server/**/*' → resources/app/server/**/*
-  //      'electron/main.js' → resources/app/electron/main.js
-  //
-  // main.js di-require sebagai: resources/app/electron/main.js
-  // server di-require sebagai:  resources/app/server/index.js  ✓
   files: [
-    // Electron
     'electron/main.js',
     'electron/preload.js',
     'electron/loading.html',
-
-    // Server — WAJIB ada di dalam asar
     'server/**/*',
-
-    // Dashboard build
     'dashboard/dist/**/*',
-
-    // OBS Overlay
     'overlay/**/*',
-
-    // Config template
     '.env.example',
-
-    // package.json wajib ada (dibaca oleh Electron untuk versi dll)
     'package.json',
-
-    // node_modules WAJIB lengkap — server pakai express, socket.io, dll
     'node_modules/**/*',
-
-    // ── Exclude untuk hemat ukuran ──
     '!node_modules/.cache/**/*',
     '!node_modules/electron/**/*',
     '!node_modules/electron-builder/**/*',
@@ -56,25 +42,21 @@ module.exports = {
     '!node_modules/@electron/rebuild/**/*',
     '!node_modules/nodemon/**/*',
     '!node_modules/.bin/**/*',
-    '!node_modules/vite/**/*',
-    '!node_modules/@vitejs/**/*',
-    '!node_modules/esbuild/**/*',
-    '!node_modules/rollup/**/*',
+    '!node_modules/vigemclient/**/*',
+    '!node_modules/node-addon-api/**/*',
     '!dashboard/src/**/*',
     '!dashboard/node_modules/**/*',
     '!electron/node_modules/**/*',
+    '!*.md',
     '!docs/**/*',
+    '!adapters/**/*',
+    '!plugins/**/*',
     '!installer/**/*',
     '!build-electron.js',
     '!electron-builder.config.js',
-    '!pkg.config.json',
-    '!*.md',
-    '!*.bat',
-    '!*.txt',
+    '!avatar/**/*',
   ],
 
-  // ── ASAR ──────────────────────────────────────────────────────────
-  // better-sqlite3 WAJIB di luar asar (native .node file)
   asar: true,
   asarUnpack: [
     'node_modules/better-sqlite3/**/*',
@@ -83,28 +65,19 @@ module.exports = {
     'node_modules/node-gyp-build/**/*',
   ],
 
-  // ── EXTRA RESOURCES (di luar asar, di folder resources/) ──────────
   extraResources: [
-    // Icon untuk tray dan window
     { from: 'electron/assets/icon.png',      to: 'icon.png' },
     { from: 'electron/assets/tray-icon.png', to: 'tray-icon.png' },
     { from: 'electron/assets/icon.ico',      to: 'icon.ico' },
-
-    // AHK scripts (diakses saat runtime, path dari adapter)
     { from: 'adapters', to: 'app/adapters', filter: ['**/*'] },
-
-    // Game plugins
     { from: 'plugins',  to: 'app/plugins',  filter: ['**/*'] },
   ],
 
-  // ── EXTRA FILES (langsung di install dir, sejajar dengan .exe) ────
   extraFiles: [
-    // Icon di root resources agar resolveIcon bisa akses via resourcesPath
     { from: 'electron/assets/icon.png',      to: 'resources/icon.png' },
     { from: 'electron/assets/tray-icon.png', to: 'resources/tray-icon.png' },
   ],
 
-  // ── WINDOWS ───────────────────────────────────────────────────────
   win: {
     target: [
       { target: 'nsis',     arch: ['x64'] },
