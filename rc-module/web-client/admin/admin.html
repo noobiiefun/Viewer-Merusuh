@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RC Module — Admin Dashboard</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f0f0f;
+      --surface: #1a1a1a;
+      --surface2: #232323;
+      --border: #2e2e2e;
+      --text: #f0f0f0;
+      --text-dim: #888;
+      --accent: #ff4444;
+      --green: #44ff88;
+      --yellow: #ffcc44;
+      --blue: #4488ff;
+      --gray: #666;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      padding: 24px;
+    }
+    h1 { font-size: 1.4rem; margin-bottom: 4px; }
+    .subtitle { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 24px; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+    }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .card-title { font-weight: 600; font-size: 0.95rem; }
+
+    .badge {
+      font-size: 0.7rem;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .badge.available { background: rgba(68,255,136,0.15); color: var(--green); }
+    .badge.in_use { background: rgba(255,68,68,0.15); color: var(--accent); }
+    .badge.offline { background: rgba(102,102,102,0.2); color: var(--gray); }
+    .badge.maintenance { background: rgba(255,204,68,0.15); color: var(--yellow); }
+    .badge.queued { background: rgba(68,136,255,0.15); color: var(--blue); }
+
+    .meta-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      padding: 4px 0;
+    }
+    .meta-row span:last-child { color: var(--text); }
+
+    .battery-bar {
+      height: 6px;
+      background: var(--surface2);
+      border-radius: 99px;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+    .battery-fill {
+      height: 100%;
+      background: var(--green);
+      transition: width 0.3s, background 0.3s;
+    }
+    .battery-fill.low { background: var(--yellow); }
+    .battery-fill.critical { background: var(--accent); }
+
+    .btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    .btn:hover { background: #2a2a2a; }
+    .btn.danger { color: var(--accent); border-color: rgba(255,68,68,0.3); }
+
+    .section-title {
+      font-size: 1rem;
+      font-weight: 600;
+      margin: 32px 0 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--surface);
+      border-radius: 12px;
+      overflow: hidden;
+      font-size: 0.85rem;
+    }
+    th, td {
+      text-align: left;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    th { color: var(--text-dim); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; }
+    tr:last-child td { border-bottom: none; }
+    .empty-state { text-align: center; padding: 24px; color: var(--text-dim); font-size: 0.85rem; }
+
+    .timer-cell { font-variant-numeric: tabular-nums; font-weight: 600; }
+    .status-dot {
+      display: inline-block;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--gray);
+      margin-right: 6px;
+    }
+    .status-dot.connected { background: var(--green); }
+
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="top-bar">
+    <div>
+      <h1>🚗 RC Module — Admin Dashboard</h1>
+      <div class="subtitle"><span class="status-dot" id="conn-dot"></span><span id="conn-label">Menghubungkan...</span></div>
+    </div>
+  </div>
+
+  <div class="section-title">📡 Fleet</div>
+  <div class="grid" id="fleet-grid">
+    <div class="empty-state">Memuat data fleet...</div>
+  </div>
+
+  <div class="section-title">⏱️ Sesi Aktif</div>
+  <table>
+    <thead>
+      <tr>
+        <th>Viewer</th>
+        <th>RC</th>
+        <th>Sisa Waktu</th>
+        <th>Sumber</th>
+        <th>Aksi</th>
+      </tr>
+    </thead>
+    <tbody id="sessions-body">
+      <tr><td colspan="5" class="empty-state">Belum ada sesi aktif</td></tr>
+    </tbody>
+  </table>
+
+  <div class="section-title">📋 Antrian</div>
+  <table>
+    <thead>
+      <tr>
+        <th>RC</th>
+        <th>Posisi</th>
+        <th>Viewer</th>
+        <th>Durasi</th>
+      </tr>
+    </thead>
+    <tbody id="queue-body">
+      <tr><td colspan="4" class="empty-state">Tidak ada antrian</td></tr>
+    </tbody>
+  </table>
+
+<script>
+  const socket = io(location.origin, { transports: ['websocket'] });
+
+  let fleetData = [];
+  let sessionsData = [];
+  let queueData = {};
+
+  socket.on('connect', () => {
+    setConnected(true);
+    socket.emit('join_admin');
+  });
+  socket.on('disconnect', () => setConnected(false));
+
+  socket.on('fleet_state', ({ fleet }) => { fleetData = fleet; renderFleet(); });
+  socket.on('sessions_state', ({ sessions }) => { sessionsData = sessions; renderSessions(); });
+  socket.on('queue_state', ({ queues }) => { queueData = queues; renderQueue(); });
+
+  socket.on('fleet_update', ({ rc_id, data }) => {
+    if (data === null) {
+      fleetData = fleetData.filter(rc => rc.id !== rc_id);
+    } else {
+      const idx = fleetData.findIndex(rc => rc.id === rc_id);
+      if (idx >= 0) fleetData[idx] = { ...fleetData[idx], ...data };
+      else fleetData.push(data);
+    }
+    renderFleet();
+  });
+
+  socket.on('rc_status', ({ rc_id, status }) => {
+    const rc = fleetData.find(r => r.id === rc_id);
+    if (rc) rc.status = status;
+    renderFleet();
+  });
+
+  socket.on('battery_update', ({ rc_id, battery_pct }) => {
+    const rc = fleetData.find(r => r.id === rc_id);
+    if (rc) rc.battery_pct = battery_pct;
+    renderFleet();
+  });
+
+  socket.on('session_start', (data) => {
+    sessionsData.push(data);
+    renderSessions();
+  });
+
+  socket.on('session_tick', ({ session_id, remaining_sec }) => {
+    const s = sessionsData.find(s => s.session_id === session_id || s.id === session_id);
+    if (s) s.remaining_sec = remaining_sec;
+    renderSessions();
+  });
+
+  socket.on('session_end', ({ session_id }) => {
+    sessionsData = sessionsData.filter(s => (s.session_id || s.id) !== session_id);
+    renderSessions();
+  });
+
+  socket.on('queue_update', ({ rc_id, queue }) => {
+    queueData[rc_id] = queue;
+    renderQueue();
+  });
+
+  // ── Render functions ──────────────────────────────────────────────────────
+  function renderFleet() {
+    const grid = document.getElementById('fleet-grid');
+    if (fleetData.length === 0) {
+      grid.innerHTML = '<div class="empty-state">Belum ada RC terdaftar</div>';
+      return;
+    }
+
+    grid.innerHTML = fleetData.map(rc => {
+      const batteryClass = rc.battery_pct <= 20 ? 'critical' : rc.battery_pct <= 50 ? 'low' : '';
+      return `
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">${escapeHtml(rc.name)}</span>
+            <span class="badge ${rc.status}">${statusLabel(rc.status)}</span>
+          </div>
+          <div class="meta-row"><span>Tipe</span><span>${rc.type}</span></div>
+          <div class="meta-row"><span>Adapter</span><span>${rc.adapter}</span></div>
+          ${rc.ip_address ? `<div class="meta-row"><span>IP</span><span>${rc.ip_address}</span></div>` : ''}
+          <div class="meta-row"><span>Battery</span><span>${rc.battery_pct ?? '--'}%</span></div>
+          <div class="battery-bar"><div class="battery-fill ${batteryClass}" style="width:${rc.battery_pct ?? 0}%"></div></div>
+          ${rc.status === 'available' ? `<button class="btn" onclick="quickStart('${rc.id}')">▶ Mulai Sesi Test (60s)</button>` : ''}
+        </div>
+      `;
+    }).join('');
+  }
+
+  function renderSessions() {
+    const body = document.getElementById('sessions-body');
+    if (sessionsData.length === 0) {
+      body.innerHTML = '<tr><td colspan="5" class="empty-state">Belum ada sesi aktif</td></tr>';
+      return;
+    }
+    body.innerHTML = sessionsData.map(s => `
+      <tr>
+        <td>${escapeHtml(s.viewer_name)}</td>
+        <td>${s.rc_id}</td>
+        <td class="timer-cell">${formatTime(s.remaining_sec)}</td>
+        <td>${s.source}</td>
+        <td><button class="btn danger" onclick="endSession('${s.session_id || s.id}')">⏹ Hentikan</button></td>
+      </tr>
+    `).join('');
+  }
+
+  function renderQueue() {
+    const body = document.getElementById('queue-body');
+    const rows = [];
+    for (const [rc_id, queue] of Object.entries(queueData)) {
+      for (const entry of queue) {
+        rows.push(`
+          <tr>
+            <td>${rc_id}</td>
+            <td>#${entry.position}</td>
+            <td>${escapeHtml(entry.viewer_name)}</td>
+            <td>${entry.duration_sec}s</td>
+          </tr>
+        `);
+      }
+    }
+    body.innerHTML = rows.length > 0 ? rows.join('') : '<tr><td colspan="4" class="empty-state">Tidak ada antrian</td></tr>';
+  }
+
+  // ── Actions ──────────────────────────────────────────────────────────────────
+  function endSession(session_id) {
+    socket.emit('admin_end_session', { session_id });
+  }
+
+  async function quickStart(rc_id) {
+    await fetch('/rc/api/session/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rc_id, viewer_name: 'Admin Test', duration_sec: 60, source: 'manual' }),
+    });
+  }
+
+  // ── Helpers ──────────────────────────────────────────────────────────────────
+  function statusLabel(status) {
+    const labels = { available: 'Tersedia', in_use: 'Dipakai', offline: 'Offline', maintenance: 'Maintenance', queued: 'Antri' };
+    return labels[status] || status;
+  }
+  function formatTime(sec) {
+    if (sec == null) return '--:--';
+    const m = Math.floor(sec / 60).toString().padStart(2, '0');
+    const s = (sec % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  }
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str ?? '';
+    return div.innerHTML;
+  }
+  function setConnected(yes) {
+    document.getElementById('conn-dot').className = 'status-dot' + (yes ? ' connected' : '');
+    document.getElementById('conn-label').textContent = yes ? 'Terhubung' : 'Terputus';
+  }
+</script>
+</body>
+</html>

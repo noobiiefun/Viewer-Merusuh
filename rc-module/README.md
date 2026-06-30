@@ -17,6 +17,10 @@ Modul ekstensi untuk **Viewer Merusuh** yang memungkinkan viewer menyewa dan men
 7. [Hardware yang Didukung](#7-hardware-yang-didukung)
 8. [Langkah Memulai](#8-langkah-memulai)
 
+> 📌 Lihat juga [`docs/HARDENING_NOTES.md`](docs/HARDENING_NOTES.md) — catatan
+> tentang penguatan fondasi software (persistence, validasi, test) yang
+> dilakukan sebelum lanjut ke hardware.
+
 ---
 
 ## 1. Gambaran Umum
@@ -58,7 +62,8 @@ Pengembangan dibagi dalam **6 Phase**. Saat ini fokus membangun fondasi (Phase 1
 
 ```
 Phase 1 ✅  Fondasi & Dokumentasi
-Phase 2 🔄  Simulator (tanpa hardware nyata)
+Phase 1.5 ✅ Pondasi Software Diperkuat (persistence, validasi, test, admin UI)
+Phase 2 🔄  Simulator (tanpa hardware nyata) — sudah jalan, terus disempurnakan
 Phase 3 ⏳  Hardware Integration (ESP32/Raspberry Pi)
 Phase 4 ⏳  Kamera Streaming (FPV)
 Phase 5 ⏳  Multi-RC & Queue System
@@ -67,21 +72,34 @@ Phase 6 ⏳  Integrasi penuh ke Viewer Merusuh
 
 ### Detail per Phase
 
-#### Phase 1 — Fondasi & Dokumentasi (SEKARANG)
+#### Phase 1 — Fondasi & Dokumentasi (SELESAI)
 - [x] Struktur folder & arsitektur
 - [x] Dokumentasi lengkap
 - [x] Simulator RC (tanpa hardware)
 - [x] Core logic: session manager, queue, timer
 
+#### Phase 1.5 — Pondasi Software Diperkuat (SELESAI)
+> Ini ditambahkan sebelum lanjut ke hardware, supaya fondasinya benar-benar kokoh.
+
+- [x] Database SQLite untuk fleet + session history (persist antar restart server)
+- [x] `commandSanitizer.js` — gerbang validasi tunggal untuk SEMUA command kontrol sebelum sampai ke adapter manapun (penting untuk keselamatan saat hardware fisik masuk)
+- [x] Rate limiter command per-RC (cegah flood/spam command)
+- [x] Validasi input ketat di semua method core (`sessionManager`, `queueManager`, `fleetManager`) — menolak input aneh sebelum jadi bug
+- [x] Try/catch konsisten di semua REST endpoint — tidak ada lagi uncaught exception ke client
+- [x] Admin dashboard (`web-client/admin/admin.html`) — monitoring fleet, sesi aktif, queue secara real-time
+- [x] Unit test (`core/__tests__/`) untuk sanitizer, session manager, queue manager, fleet manager
+- [x] Endpoint `/api/session/history` yang sudah didokumentasikan tapi belum diimplementasi
+
 #### Phase 2 — Simulator & Web Controller
-- [ ] Web controller UI (WASD + on-screen joystick)
-- [ ] Simulasi RC di browser (kotak bergerak)
-- [ ] Session timer real-time
-- [ ] Queue list viewer
+- [x] Web controller UI (D-pad + keyboard)
+- [x] Simulasi RC di browser (kotak bergerak di canvas)
+- [x] Session timer real-time
+- [x] Queue list viewer (di admin dashboard)
+- [ ] Joystick on-screen (saat ini masih D-pad diskrit)
 
 #### Phase 3 — Hardware Real (ESP32)
-- [ ] Firmware ESP32 (menerima perintah via WebSocket)
-- [ ] Adapter `rc-esp32.js` di server
+- [x] Firmware ESP32 (`hardware/esp32/firmware.ino`) — siap upload, sudah ada safety timeout
+- [ ] Adapter `rc-esp32.js` di server — skeleton sudah ada, WebSocket client-nya belum diisi
 - [ ] Test kontrol RC nyata via browser
 
 #### Phase 4 — Kamera FPV
@@ -90,15 +108,15 @@ Phase 6 ⏳  Integrasi penuh ke Viewer Merusuh
 - [ ] Integrasi ke OBS sebagai scene
 
 #### Phase 5 — Multi-RC & Fleet Management
-- [ ] Support banyak RC sekaligus
-- [ ] Dashboard admin fleet RC
-- [ ] Queue otomatis (viewer berikutnya)
+- [x] Support banyak RC sekaligus (sudah jalan di simulator)
+- [x] Dashboard admin fleet RC
+- [x] Queue otomatis (viewer berikutnya) — sudah jalan
 
 #### Phase 6 — Integrasi Viewer Merusuh
-- [ ] Donasi Saweria/Trakteer → trigger sewa RC
+- [ ] Donasi Saweria/Trakteer → trigger sewa RC (kode contoh sudah ada di INTEGRATION_GUIDE.md, belum dites end-to-end)
 - [ ] Overlay OBS menampilkan siapa yang kontrol RC
-- [ ] eventBus integration
-- [ ] Dashboard tab baru di Viewer Merusuh
+- [x] eventBus integration (skeleton sudah ada di `api/server.js` → `init()`)
+- [ ] Dashboard tab baru di Viewer Merusuh (React)
 
 ---
 
@@ -185,44 +203,48 @@ rc-module/
 │   └── SIMULATOR_GUIDE.md       # Cara run simulator tanpa hardware
 │
 ├── core/
-│   ├── sessionManager.js        # Logic sewa: assign, timer, release
+│   ├── sessionManager.js        # Logic sewa: assign, timer, release, history
 │   ├── queueManager.js          # Antrian viewer
-│   ├── fleetManager.js          # Manajemen armada RC/drone
-│   └── eventBridge.js           # Jembatan event ke/dari Viewer Merusuh
+│   ├── fleetManager.js          # Manajemen armada RC/drone (persisted ke DB)
+│   ├── commandSanitizer.js      # ⚠️ Gerbang validasi SEMUA command sebelum ke hardware
+│   └── __tests__/               # Unit test (jest)
+│       ├── commandSanitizer.test.js
+│       ├── sessionManager.test.js
+│       ├── queueManager.test.js
+│       ├── fleetManager.test.js
+│       └── testSetup.js         # Helper in-memory DB untuk testing
 │
 ├── adapters/
 │   ├── rc/
-│   │   ├── rc-esp32.js          # Adapter RC berbasis ESP32
-│   │   ├── rc-raspi.js          # Adapter RC berbasis Raspberry Pi
+│   │   ├── rc-esp32.js          # Adapter RC berbasis ESP32 (skeleton, Phase 3)
+│   │   ├── rc-raspi.js          # Adapter RC berbasis Raspberry Pi (belum ada)
 │   │   └── rc-simulator.js      # Simulator (dev/testing)
 │   └── drone/
-│       ├── drone-mavlink.js     # Adapter drone via MAVLink
-│       └── drone-simulator.js   # Simulator drone
+│       ├── drone-mavlink.js     # Adapter drone via MAVLink (belum ada)
+│       └── drone-simulator.js   # Simulator drone (belum ada)
 │
 ├── hardware/
 │   ├── esp32/
 │   │   ├── firmware.ino         # Kode Arduino/ESP32
-│   │   └── WIRING_GUIDE.md      # Panduan wiring ESP32 ke RC
+│   │   └── WIRING_GUIDE.md      # Panduan wiring ESP32 ke RC (belum ada, ada di HARDWARE_GUIDE.md)
 │   └── raspi/
-│       ├── setup.sh             # Script setup Raspberry Pi
-│       └── RASPI_GUIDE.md       # Panduan Raspberry Pi
+│       ├── setup.sh             # Script setup Raspberry Pi (belum ada)
+│       └── RASPI_GUIDE.md       # Panduan Raspberry Pi (belum ada)
 │
 ├── api/
 │   ├── server.js                # Entry point server RC Module
-│   ├── routes/
-│   │   ├── rc.js                # CRUD fleet RC
-│   │   ├── session.js           # Manajemen sesi sewa
-│   │   └── queue.js             # Manajemen antrian
 │   └── db/
-│       ├── database.js          # SQLite singleton
-│       └── setup.js             # Schema & seed
+│       ├── database.js          # SQLite singleton getDB()
+│       └── setup.js             # Schema + migration check + seed config
 │
 ├── web-client/
 │   ├── controller.html          # Web controller untuk viewer
-│   └── admin.html               # Dashboard admin (monitoring fleet)
+│   └── admin/
+│       └── admin.html           # Dashboard admin (monitoring fleet real-time)
+│
+├── data/                        # (auto-generated) lokasi file rc-module.db
 │
 └── simulator/
-    ├── rc-sim.js                # Simulasi fisika RC sederhana
     └── README.md                # Panduan simulator
 ```
 
@@ -340,13 +362,25 @@ cd rc-module
 # 2. Install dependencies
 npm install
 
-# 3. Jalankan simulator
+# 3. Jalankan test (memastikan fondasi software aman sebelum lanjut)
+npm test
+
+# 4. Jalankan simulator
 npm run simulator
 
-# 4. Buka web controller di browser
-# http://localhost:3001/controller
-# http://localhost:3001/admin
+# 5. Buka di browser
+# Admin dashboard → http://localhost:3001/rc/admin/admin.html
+# Web controller  → didapat dari response saat mulai sesi (lihat docs/SIMULATOR_GUIDE.md)
 ```
+
+> 💾 **Catatan database:** Saat pertama kali dijalankan, RC Module otomatis membuat
+> folder `data/` berisi `rc-module.db` (SQLite). File ini menyimpan fleet RC dan
+> riwayat sesi secara permanen — aman untuk di-`.gitignore`-kan, atau backup kalau perlu.
+
+> ⚠️ **Catatan instalasi:** `better-sqlite3` adalah native module yang perlu dikompilasi
+> saat instalasi. Jika `npm install` gagal karena native build, pastikan sudah ada
+> Node.js LTS + (Windows) Visual C++ Build Tools — pola masalah yang sama seperti
+> pernah terjadi di Viewer Merusuh (lihat `DEVELOPER_GUIDE.md` bagian "better-sqlite3 error").
 
 ### Nanti (Phase 3) — Dengan Hardware ESP32
 

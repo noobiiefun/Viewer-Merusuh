@@ -10,6 +10,13 @@
  * Integrasi (dari server/index.js Viewer Merusuh):
  *   const rcModule = require('../rc-module/api/server');
  *   rcModule.init({ app, io, eventBus });
+ * 
+ * Fondasi yang ditambahkan di iterasi ini (sebelum masuk hardware nyata):
+ * - Database SQLite untuk fleet + session_history (persist antar restart)
+ * - Command sanitizer + rate limiter di SETIAP titik kontrol RC
+ * - Try/catch konsisten di semua route (tidak ada uncaught exception ke client)
+ * - Endpoint /session/history yang sudah didokumentasikan tapi belum ada
+ * - Battery flush periodik ke DB (supaya tidak boros I/O tapi tetap persist)
  */
 
 const express = require('express');
@@ -22,6 +29,13 @@ const queueManager = require('../core/queueManager');
 const fleetManager = require('../core/fleetManager');
 const { RC_STATUS } = require('../core/fleetManager');
 const { getSimulator } = require('../adapters/rc/rc-simulator');
+const { sanitizeCommand, CommandRateLimiter } = require('../core/commandSanitizer');
+const { setup: setupDB } = require('./db/setup');
+const { closeDB } = require('./db/database');
+
+// Rate limiter global untuk perintah kontrol — 1 perintah per 100ms per RC.
+// Ini lapisan pertahanan terakhir sebelum command sampai ke adapter manapun.
+const commandLimiter = new CommandRateLimiter(100);
 
 // ─── Setup event wiring (core logic) ──────────────────────────────────────────
 
@@ -52,14 +66,18 @@ function wireEvents(io) {
     const next = queueManager.dequeue(data.rc_id);
     if (next) {
       const rc = fleetManager.get(data.rc_id);
-      sessionManager.start({
-        rc_id: data.rc_id,
-        viewer_name: next.viewer_name,
-        duration_sec: next.duration_sec,
-        source: next.source,
-        donation_amount: next.donation_amount,
-      });
-      console.log(`[RCModule] Queue: ${next.viewer_name} mendapat giliran RC ${rc?.name}`);
+      try {
+        sessionManager.start({
+          rc_id: data.rc_id,
+          viewer_name: next.viewer_name,
+          duration_sec: next.duration_sec,
+          source: next.source,
+          donation_amount: next.donation_amount,
+        });
+        console.log(`[RCModule] Queue: ${next.viewer_name} mendapat giliran RC ${rc?.name}`);
+      } catch (err) {
+        console.error('[RCModule] Gagal proses queue berikutnya:', err.message);
+      }
     }
   });
 
@@ -77,6 +95,9 @@ function wireEvents(io) {
 function setupSocketHandlers(io) {
   io.on('connection', (socket) => {
     console.log(`[RCModule] Client terhubung: ${socket.id}`);
+
+    // Sederhana ping/pong untuk latency check di web-client
+    socket.on('ping', () => socket.emit('pong'));
 
     // Viewer join room sesi mereka
     socket.on('join_viewer', ({ token }) => {
@@ -103,6 +124,11 @@ function setupSocketHandlers(io) {
       socket.emit('queue_state', { queues: queueManager.getAll() });
     });
 
+    // Admin minta akhiri sesi tertentu
+    socket.on('admin_end_session', ({ session_id }) => {
+      sessionManager.end(session_id, 'admin');
+    });
+
     // Viewer kirim perintah kontrol RC
     socket.on('control', ({ token, command }) => {
       const session = sessionManager.validateToken(token);
@@ -117,21 +143,37 @@ function setupSocketHandlers(io) {
         return;
       }
 
-      // Dispatch ke adapter yang sesuai
-      if (rc.adapter === 'simulator') {
-        const sim = getSimulator(rc.id, rc.name);
-        if (!sim.connected) sim.connect();
-        sim.sendCommand(command);
+      // Rate limit per RC — lindungi dari client yang kirim command
+      // lebih cepat dari yang seharusnya (bug atau spam)
+      if (!commandLimiter.allow(rc.id)) {
+        return; // diam-diam diabaikan, tidak perlu emit error untuk ini
+      }
 
-        // Forward state update ke viewer
-        sim.once('state_update', (stateData) => {
-          socket.emit('rc_state_update', stateData);
-        });
-      } else if (rc.adapter === 'esp32') {
-        // TODO Phase 3: kirim ke ESP32 adapter
-        const { getAdapter } = require('../adapters/rc/rc-esp32');
-        const adapter = getAdapter(rc.id, { name: rc.name, ip_address: rc.ip_address, ws_port: rc.ws_port });
-        adapter.sendCommand(command);
+      // SEMUA command wajib lewat sanitizer sebelum sampai ke adapter manapun.
+      // Ini satu-satunya gerbang command masuk ke dunia fisik nantinya.
+      const safeCommand = sanitizeCommand(rc.type, command);
+
+      try {
+        // Dispatch ke adapter yang sesuai
+        if (rc.adapter === 'simulator') {
+          const sim = getSimulator(rc.id, rc.name);
+          if (!sim.connected) sim.connect();
+          sim.sendCommand(safeCommand);
+
+          // Forward state update ke viewer
+          sim.once('state_update', (stateData) => {
+            socket.emit('rc_state_update', stateData);
+          });
+        } else if (rc.adapter === 'esp32') {
+          const { getAdapter } = require('../adapters/rc/rc-esp32');
+          const adapter = getAdapter(rc.id, { name: rc.name, ip_address: rc.ip_address, ws_port: rc.ws_port });
+          adapter.sendCommand(safeCommand);
+        } else {
+          socket.emit('error', { code: 'ADAPTER_NOT_IMPLEMENTED', message: `Adapter '${rc.adapter}' belum diimplementasi` });
+        }
+      } catch (err) {
+        console.error('[RCModule] Error saat kirim command:', err.message);
+        socket.emit('error', { code: 'COMMAND_FAILED', message: err.message });
       }
     });
 
@@ -146,7 +188,7 @@ function setupSocketHandlers(io) {
 function setupRoutes(app) {
   const router = express.Router();
 
-  // Fleet RC
+  // ── Fleet RC ─────────────────────────────────────────────────────────────────
   router.get('/fleet', (req, res) => {
     res.json({ success: true, data: fleetManager.getAll() });
   });
@@ -171,7 +213,8 @@ function setupRoutes(app) {
       const rc = fleetManager.update(req.params.id, req.body);
       res.json({ success: true, data: rc });
     } catch (err) {
-      res.status(400).json({ success: false, error: err.message });
+      const status = err.message === 'RC_NOT_FOUND' ? 404 : 400;
+      res.status(status).json({ success: false, error: err.message });
     }
   });
 
@@ -180,23 +223,41 @@ function setupRoutes(app) {
       fleetManager.remove(req.params.id);
       res.json({ success: true });
     } catch (err) {
-      res.status(400).json({ success: false, error: err.message });
+      const status = err.message === 'RC_NOT_FOUND' ? 404 : 400;
+      res.status(status).json({ success: false, error: err.message });
     }
   });
 
-  // Sessions
+  // ── Sessions ─────────────────────────────────────────────────────────────────
   router.get('/session', (req, res) => {
     res.json({ success: true, data: sessionManager.getAll() });
   });
 
-  router.post('/session/start', (req, res) => {
-    const { rc_id, viewer_name, duration_sec, source } = req.body;
-    const rc = fleetManager.get(rc_id);
-    if (!rc) return res.status(404).json({ success: false, error: 'RC_NOT_FOUND' });
-    if (rc.status === RC_STATUS.IN_USE) return res.status(400).json({ success: false, error: 'RC_IN_USE' });
+  router.get('/session/history', (req, res) => {
+    try {
+      const limit = Math.min(parseInt(req.query.limit, 10) || 50, 500);
+      const rc_id = req.query.rc_id || null;
+      const history = sessionManager.getHistory({ limit, rc_id });
+      res.json({ success: true, data: history });
+    } catch (err) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
 
-    const session = sessionManager.start({ rc_id, viewer_name, duration_sec, source: source || 'manual' });
-    res.json({ success: true, data: session });
+  router.post('/session/start', (req, res) => {
+    try {
+      const { rc_id, viewer_name, duration_sec, source } = req.body;
+      const rc = fleetManager.get(rc_id);
+      if (!rc) return res.status(404).json({ success: false, error: 'RC_NOT_FOUND' });
+      if (rc.status !== RC_STATUS.AVAILABLE) {
+        return res.status(400).json({ success: false, error: 'RC_IN_USE' });
+      }
+
+      const session = sessionManager.start({ rc_id, viewer_name, duration_sec, source: source || 'manual' });
+      res.json({ success: true, data: session });
+    } catch (err) {
+      res.status(400).json({ success: false, error: err.message });
+    }
   });
 
   router.post('/session/:id/end', (req, res) => {
@@ -205,15 +266,19 @@ function setupRoutes(app) {
     res.json({ success: true });
   });
 
-  // Queue
+  // ── Queue ────────────────────────────────────────────────────────────────────
   router.get('/queue', (req, res) => {
     res.json({ success: true, data: queueManager.getAll() });
   });
 
   router.post('/queue/join', (req, res) => {
-    const result = queueManager.enqueue(req.body);
-    if (!result.success) return res.status(400).json(result);
-    res.json({ success: true, data: result });
+    try {
+      const result = queueManager.enqueue(req.body);
+      if (!result.success) return res.status(400).json(result);
+      res.json({ success: true, data: result });
+    } catch (err) {
+      res.status(400).json({ success: false, error: err.message });
+    }
   });
 
   router.delete('/queue/:token', (req, res) => {
@@ -223,13 +288,39 @@ function setupRoutes(app) {
 
   app.use('/rc/api', router);
 
-  // Web controller (viewer)
+  // Web controller + admin dashboard (static files)
   app.use('/rc/controller', express.static(path.join(__dirname, '../web-client')));
+  app.use('/rc/admin', express.static(path.join(__dirname, '../web-client/admin')));
+}
+
+// ─── Background tasks ───────────────────────────────────────────────────────────
+
+/**
+ * Flush battery ke DB tiap 30 detik + bersihkan rate limiter lama.
+ * Dipisah jadi fungsi sendiri supaya bisa dimatikan saat shutdown.
+ */
+function startBackgroundTasks() {
+  const batteryFlushInterval = setInterval(() => {
+    fleetManager.flushBatteryToDB();
+  }, 30000);
+
+  const rateLimiterCleanup = setInterval(() => {
+    commandLimiter.cleanup();
+  }, 60000);
+
+  return () => {
+    clearInterval(batteryFlushInterval);
+    clearInterval(rateLimiterCleanup);
+  };
 }
 
 // ─── Standalone mode ───────────────────────────────────────────────────────────
 
 function standalone() {
+  // DB harus siap SEBELUM fleetManager.loadFromDB() dipanggil
+  setupDB();
+  fleetManager.loadFromDB();
+
   const app = express();
   const httpServer = createServer(app);
   const io = new Server(httpServer, { cors: { origin: '*' } });
@@ -240,19 +331,27 @@ function standalone() {
   wireEvents(io);
   setupSocketHandlers(io);
 
-  // Seed simulator untuk dev
+  // Seed simulator untuk dev (aman dipanggil berkali-kali, lihat fleetManager.seedSimulators)
   fleetManager.seedSimulators();
+
+  const stopBackgroundTasks = startBackgroundTasks();
 
   const PORT = process.env.RC_PORT || 3001;
   httpServer.listen(PORT, () => {
     console.log(`[RCModule] Server berjalan di http://localhost:${PORT}`);
-    console.log(`[RCModule] Admin  → http://localhost:${PORT}/rc/controller/admin.html`);
-    console.log(`[RCModule] Fleet  → http://localhost:${PORT}/rc/api/fleet`);
+    console.log(`[RCModule] Controller → http://localhost:${PORT}/rc/controller/controller.html`);
+    console.log(`[RCModule] Admin      → http://localhost:${PORT}/rc/admin/admin.html`);
+    console.log(`[RCModule] Fleet API  → http://localhost:${PORT}/rc/api/fleet`);
   });
 
-  // Graceful shutdown
+  // Graceful shutdown — penting supaya battery ter-flush dan sesi tercatat
+  // sebelum process benar-benar mati.
   process.on('SIGINT', () => {
+    console.log('\n[RCModule] Shutting down...');
+    stopBackgroundTasks();
+    fleetManager.flushBatteryToDB();
     sessionManager.endAll();
+    closeDB();
     process.exit(0);
   });
 }
@@ -268,6 +367,9 @@ function standalone() {
  * @param {Object} [opts.config] - Override config
  */
 function init({ app, io, eventBus, config = {} }) {
+  setupDB();
+  fleetManager.loadFromDB();
+
   setupRoutes(app);
   wireEvents(io);
   setupSocketHandlers(io);
@@ -277,28 +379,34 @@ function init({ app, io, eventBus, config = {} }) {
     fleetManager.seedSimulators();
   }
 
+  startBackgroundTasks();
+
   // Integrasi dengan eventBus Viewer Merusuh
   if (eventBus) {
     const minAmount = config.min_donation_amount || 10000;
     const amountPerMin = config.amount_per_minute || 5000;
 
     eventBus.on('donation', async (donation) => {
-      const { amount, viewer_name } = donation;
-      if (amount < minAmount) return;
+      try {
+        const { amount, viewer_name } = donation;
+        if (!amount || amount < minAmount) return;
 
-      const duration_sec = Math.floor((amount / amountPerMin) * 60);
-      const availableRc = fleetManager.getAvailable();
+        const duration_sec = Math.floor((amount / amountPerMin) * 60);
+        const availableRc = fleetManager.getAvailable();
 
-      if (availableRc) {
-        sessionManager.start({
-          rc_id: availableRc.id,
-          viewer_name,
-          duration_sec,
-          source: 'donation',
-          donation_amount: amount,
-        });
-      } else {
-        queueManager.enqueue({ viewer_name, duration_sec, source: 'donation', donation_amount: amount });
+        if (availableRc) {
+          sessionManager.start({
+            rc_id: availableRc.id,
+            viewer_name,
+            duration_sec,
+            source: 'donation',
+            donation_amount: amount,
+          });
+        } else {
+          queueManager.enqueue({ rc_id: null, viewer_name, duration_sec, source: 'donation', donation_amount: amount });
+        }
+      } catch (err) {
+        console.error('[RCModule] Gagal proses donation event:', err.message);
       }
     });
 

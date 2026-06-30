@@ -51,6 +51,16 @@ class QueueManager extends EventEmitter {
   enqueue(opts) {
     const { rc_id, viewer_name, duration_sec, source, donation_amount } = opts;
 
+    if (!rc_id || typeof rc_id !== 'string') {
+      throw new Error('rc_id wajib diisi');
+    }
+    if (!viewer_name || typeof viewer_name !== 'string' || viewer_name.trim().length === 0) {
+      throw new Error('viewer_name wajib diisi');
+    }
+    if (!Number.isFinite(duration_sec) || duration_sec <= 0 || duration_sec > 3600) {
+      throw new Error('duration_sec harus angka positif, maksimal 3600 detik');
+    }
+
     // Inisialisasi queue untuk RC ini jika belum ada
     if (!this.queues.has(rc_id)) {
       this.queues.set(rc_id, []);

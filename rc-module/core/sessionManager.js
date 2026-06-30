@@ -12,6 +12,7 @@
 
 const { EventEmitter } = require('events');
 const crypto = require('crypto');
+const { getDB } = require('../api/db/database');
 
 class SessionManager extends EventEmitter {
   constructor() {
@@ -45,6 +46,24 @@ class SessionManager extends EventEmitter {
    */
   start(opts) {
     const { rc_id, viewer_name, duration_sec, source, donation_amount } = opts;
+
+    // Validasi input — penting sebelum hardware nyata terhubung,
+    // supaya perintah aneh tidak pernah sampai ke motor/drone.
+    if (!rc_id || typeof rc_id !== 'string') {
+      throw new Error('rc_id wajib diisi');
+    }
+    if (!viewer_name || typeof viewer_name !== 'string' || viewer_name.trim().length === 0) {
+      throw new Error('viewer_name wajib diisi');
+    }
+    if (!Number.isFinite(duration_sec) || duration_sec <= 0) {
+      throw new Error('duration_sec harus angka positif');
+    }
+    if (duration_sec > 3600) {
+      throw new Error('duration_sec maksimal 3600 detik (1 jam)');
+    }
+    if (this.isRcInUse(rc_id)) {
+      throw new Error('RC_IN_USE');
+    }
 
     const session_id = `sess_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
     const viewer_token = crypto.randomBytes(16).toString('hex');
@@ -133,6 +152,31 @@ class SessionManager extends EventEmitter {
     this.tokenIndex.delete(session.viewer_token);
     this.sessions.delete(session_id);
 
+    // Simpan ke riwayat (session_history) — supaya tidak hilang setelah restart
+    // dan bisa dipakai untuk laporan/statistik nanti.
+    try {
+      const db = getDB();
+      db.prepare(`
+        INSERT INTO session_history
+          (id, rc_id, viewer_name, duration_sec, duration_used_sec, source, donation_amount, reason_ended, started_at, ended_at)
+        VALUES (@id, @rc_id, @viewer_name, @duration_sec, @duration_used_sec, @source, @donation_amount, @reason_ended, @started_at, @ended_at)
+      `).run({
+        id: session.id,
+        rc_id: session.rc_id,
+        viewer_name: session.viewer_name,
+        duration_sec: session.duration_sec,
+        duration_used_sec: session.duration_sec - session.remaining_sec,
+        source: session.source,
+        donation_amount: session.donation_amount,
+        reason_ended: reason,
+        started_at: session.started_at,
+        ended_at: new Date().toISOString(),
+      });
+    } catch (err) {
+      // Riwayat gagal tersimpan tidak boleh menghentikan flow utama (RC tetap harus release)
+      console.error('[SessionManager] Gagal simpan session_history:', err.message);
+    }
+
     // Emit event session ended
     this.emit('session_end', {
       session_id,
@@ -194,6 +238,25 @@ class SessionManager extends EventEmitter {
       source: s.source,
       donation_amount: s.donation_amount,
     }));
+  }
+
+  /**
+   * Ambil riwayat sesi dari database (untuk endpoint /api/session/history)
+   * @param {Object} opts
+   * @param {number} [opts.limit=50]
+   * @param {string} [opts.rc_id] - filter by RC
+   * @returns {Array}
+   */
+  getHistory({ limit = 50, rc_id = null } = {}) {
+    const db = getDB();
+    if (rc_id) {
+      return db.prepare(`
+        SELECT * FROM session_history WHERE rc_id = ? ORDER BY started_at DESC LIMIT ?
+      `).all(rc_id, limit);
+    }
+    return db.prepare(`
+      SELECT * FROM session_history ORDER BY started_at DESC LIMIT ?
+    `).all(limit);
   }
 
   /**
