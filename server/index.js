@@ -31,6 +31,8 @@ const apiRouter     = require('./routes/api')
 const pluginRouter  = require('./routes/plugin')
 const envRouter     = require('./routes/env')
 const testingRouter = require('./routes/testing')
+const ngrokRouter   = require('./routes/ngrok')
+const ngrokManager  = require('./core/ngrokManager')
 
 const app    = express()
 const server = http.createServer(app)
@@ -81,6 +83,7 @@ app.use('/api', apiRouter)
 app.use('/api/plugin',  pluginRouter)
 app.use('/api/env',     envRouter)
 app.use('/api/testing', testingRouter)
+app.use('/api/ngrok',   ngrokRouter)
 
 // Root info
 app.get('/', (req, res) => {
@@ -113,6 +116,7 @@ io.on('connection', (socket) => {
 eventBus.on('donation',       (donation) => { io.emit('donation', donation) })
 eventBus.on('test_log',       (log)      => { io.emit('test_log', log) })
 eventBus.on('config_updated', ()          => { io.emit('config_updated', {}) })
+eventBus.on('ngrok_status',   (status)   => { io.emit('ngrok_status', status) })
 
 // Forward chat ke eventBus agar avatar module bisa update last_seen viewer
 // Emit ini dari adapter YouTube polling atau chat handler yang sudah ada
@@ -163,6 +167,13 @@ server.listen(PORT, () => {
 ║  Mode: ${(process.env.NODE_ENV || 'development').padEnd(39)}║
 ╚${line}╝
   `)
+
+  // ── Ngrok Autostart ────────────────────────────────────
+  if (process.env.NGROK_AUTOSTART === 'true' && process.env.NGROK_AUTHTOKEN) {
+    ngrokManager.start({ authtoken: process.env.NGROK_AUTHTOKEN, port: PORT })
+      .then(({ url }) => console.log(`🌐 [Ngrok] Tunnel aktif: ${url}`))
+      .catch(err => console.error(`❌ [Ngrok] Gagal autostart: ${err.message}`))
+  }
 
   // ── Mount Avatar Module ─────────────────────────────────
   if (avatarModule) {

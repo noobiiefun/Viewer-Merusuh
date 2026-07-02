@@ -114,6 +114,29 @@ const ENV_SCHEMA = [
       },
     ],
   },
+  {
+    category: 'Ngrok',
+    icon: '🌐',
+    fields: [
+      {
+        key:         'NGROK_AUTHTOKEN',
+        label:       'Ngrok Authtoken',
+        type:        'secret',
+        placeholder: 'Ambil dari https://dashboard.ngrok.com/get-started/your-authtoken',
+        hint:        'Token untuk ngrok tunnel built-in. Dikelola via halaman Konfigurasi.',
+        required:    false,
+      },
+      {
+        key:         'NGROK_AUTOSTART',
+        label:       'Auto-connect Ngrok saat start',
+        type:        'select',
+        options:     ['false', 'true'],
+        default:     'false',
+        hint:        'Jika true, ngrok otomatis konek tiap kali server start (perlu NGROK_AUTHTOKEN terisi).',
+        required:    false,
+      },
+    ],
+  },
 ]
 
 // ── Parse .env file ke object ────────────────────────────────────────

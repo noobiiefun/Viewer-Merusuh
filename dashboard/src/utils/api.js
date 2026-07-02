@@ -69,4 +69,11 @@ export const api = {
   saveEnv:            (body)  => request('PUT', '/api/env', body),
   getEnvStatus:       ()      => request('GET', '/api/env/status'),
   generateSecret:     ()      => request('POST', '/api/env/generate-secret'),
+
+  // Ngrok tunnel
+  getNgrokStatus:     ()      => request('GET',  '/api/ngrok/status'),
+  saveNgrokToken:     (body)  => request('POST', '/api/ngrok/token', body),
+  startNgrok:         ()      => request('POST', '/api/ngrok/start'),
+  stopNgrok:          ()      => request('POST', '/api/ngrok/stop'),
+  testNgrok:          ()      => request('POST', '/api/ngrok/test'),
 }

@@ -1,5 +1,5 @@
 // dashboard/src/pages/ConfigPage.jsx
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { api } from '../utils/api'
 
 function Section({ title, children }) {
@@ -30,6 +30,239 @@ function CopyInput({ label, value }) {
         </button>
       </div>
     </div>
+  )
+}
+
+// ── Status badge helper ──────────────────────────────────────────────
+const NGROK_BADGE = {
+  stopped:  { label: 'Belum Terhubung', color: '#6b7280' },
+  starting: { label: 'Menghubungkan…',  color: '#f59e0b' },
+  connected:{ label: 'Terhubung',       color: '#22c55e' },
+  error:    { label: 'Error',           color: '#ef4444' },
+}
+
+function NgrokSection({ toast }) {
+  const [token,      setToken]      = useState('')
+  const [autostart,  setAutostart]  = useState(false)
+  const [status,     setStatus]     = useState('stopped')
+  const [url,        setUrl]        = useState(null)
+  const [tokenSaved, setTokenSaved] = useState(false)
+  const [busy,       setBusy]       = useState(false)
+  const [testResult, setTestResult] = useState(null)
+  const [errorMsg,   setErrorMsg]   = useState(null)
+  const intervalRef = useRef(null)
+
+  const refreshStatus = useCallback(async () => {
+    try {
+      const res = await api.getNgrokStatus()
+      setStatus(res.data.status)
+      setUrl(res.data.url || null)
+      setTokenSaved(res.data.tokenSaved)
+      setAutostart(res.data.autostart)
+      if (res.data.error) setErrorMsg(res.data.error)
+      else setErrorMsg(null)
+    } catch (_) {}
+  }, [])
+
+  useEffect(() => {
+    refreshStatus()
+    intervalRef.current = setInterval(refreshStatus, 4000)
+    return () => clearInterval(intervalRef.current)
+  }, [refreshStatus])
+
+  async function handleConnect() {
+    setBusy(true); setErrorMsg(null); setTestResult(null)
+    try {
+      // Simpan token ke .env kalau ada isian baru
+      if (token.trim()) {
+        await api.saveNgrokToken({ authtoken: token.trim(), autostart })
+        setTokenSaved(true)
+        setToken('')
+      } else if (!tokenSaved) {
+        toast.error('Paste ngrok authtoken dulu sebelum connect.')
+        return
+      }
+      const res = await api.startNgrok()
+      setUrl(res.data.url)
+      setStatus('connected')
+      toast.success('Ngrok tunnel aktif!')
+    } catch (err) {
+      setErrorMsg(err.message || 'Gagal memulai tunnel.')
+      toast.error(err.message || 'Gagal memulai tunnel.')
+    } finally {
+      setBusy(false); refreshStatus()
+    }
+  }
+
+  async function handleDisconnect() {
+    setBusy(true)
+    try {
+      await api.stopNgrok()
+      setStatus('stopped'); setUrl(null)
+      toast.success('Tunnel diputus.')
+    } catch (err) {
+      toast.error(err.message)
+    } finally { setBusy(false) }
+  }
+
+  async function handleSaveToken() {
+    if (!token.trim()) { toast.error('Token tidak boleh kosong.'); return }
+    setBusy(true)
+    try {
+      await api.saveNgrokToken({ authtoken: token.trim(), autostart })
+      setTokenSaved(true); setToken('')
+      toast.success('Token tersimpan.')
+    } catch (err) {
+      toast.error(err.message)
+    } finally { setBusy(false) }
+  }
+
+  async function handleTest() {
+    setBusy(true); setTestResult(null)
+    try {
+      const res = await api.testNgrok()
+      setTestResult(res.data)
+    } catch (err) {
+      setTestResult({ ok: false, message: err.message })
+    } finally { setBusy(false) }
+  }
+
+  async function handleAutostartToggle(checked) {
+    setAutostart(checked)
+    // Simpan perubahan autostart ke .env langsung (token kosong = pakai yang tersimpan)
+    try {
+      await api.saveNgrokToken({ authtoken: '', autostart: checked })
+    } catch (_) {}
+  }
+
+  const badge = NGROK_BADGE[status] || NGROK_BADGE.stopped
+  const isConnected = status === 'connected'
+
+  return (
+    <Section title="🌐 Ngrok Tunnel">
+      {/* Status badge */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span style={{
+          fontSize: 12, padding: '3px 12px', borderRadius: 999, fontWeight: 600,
+          background: `${badge.color}22`, color: badge.color, border: `1px solid ${badge.color}55`,
+        }}>
+          ● {badge.label}
+        </span>
+        {isConnected && url && (
+          <span style={{ fontSize: 11, color: 'var(--text-3)' }}>
+            Tunnel aktif — webhook Saweria/Trakteer siap dipakai lewat URL publik
+          </span>
+        )}
+      </div>
+
+      <p style={{ color: 'var(--text-2)', fontSize: 13, margin: 0 }}>
+        Hubungkan server ke internet langsung dari sini tanpa install ngrok terpisah.
+        URL publik otomatis muncul dan bisa langsung dipasang ke Saweria / Trakteer.{' '}
+        <a href="https://dashboard.ngrok.com/get-started/your-authtoken" target="_blank" rel="noreferrer"
+          style={{ color: 'var(--primary)' }}>
+          Ambil authtoken →
+        </a>
+      </p>
+
+      {/* Input token */}
+      <div>
+        <label>Ngrok Authtoken</label>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input
+            className="input"
+            type="password"
+            placeholder={tokenSaved ? '•••••••••••••• (token sudah tersimpan, isi untuk ganti)' : 'Paste authtoken di sini…'}
+            value={token}
+            onChange={e => { setToken(e.target.value); setTestResult(null) }}
+            style={{ fontFamily: 'monospace', fontSize: 12 }}
+          />
+          {token.trim() && (
+            <button className="btn btn-ghost btn-sm" onClick={handleSaveToken} disabled={busy} style={{ flexShrink: 0 }}>
+              Simpan Token
+            </button>
+          )}
+        </div>
+        <p style={{ color: 'var(--text-3)', fontSize: 11, marginTop: 4 }}>
+          Token disimpan di file .env dan tidak pernah ditampilkan ulang setelah tersimpan.
+        </p>
+      </div>
+
+      {/* Autostart toggle */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <input
+          type="checkbox"
+          id="ngrok-autostart"
+          checked={autostart}
+          onChange={e => handleAutostartToggle(e.target.checked)}
+        />
+        <label htmlFor="ngrok-autostart" style={{ margin: 0, cursor: 'pointer', userSelect: 'none' }}>
+          Otomatis konek ngrok saat aplikasi dibuka
+        </label>
+      </div>
+
+      {/* Tombol connect/disconnect + test */}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        {isConnected ? (
+          <button className="btn btn-danger" onClick={handleDisconnect} disabled={busy}>
+            {busy ? '⏳ Memutus…' : '🔌 Putuskan Tunnel'}
+          </button>
+        ) : (
+          <button className="btn btn-primary" onClick={handleConnect} disabled={busy || (!token.trim() && !tokenSaved)}>
+            {busy && status === 'starting' ? '⏳ Menghubungkan…' : '🌐 Hubungkan Ngrok'}
+          </button>
+        )}
+        <button
+          className="btn btn-ghost"
+          onClick={handleTest}
+          disabled={busy || !isConnected}
+          title={!isConnected ? 'Connect dulu sebelum test' : 'Test round-trip via URL publik ngrok'}
+        >
+          🔍 Test Koneksi
+        </button>
+      </div>
+
+      {/* URL publik */}
+      {isConnected && url && (
+        <div>
+          <label>URL Publik (gunakan ini di Saweria / Trakteer / Client Module)</label>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input className="input" readOnly value={url} style={{ fontFamily: 'monospace', fontSize: 12 }} />
+            <button className="btn btn-ghost btn-sm" onClick={() => {
+              navigator.clipboard.writeText(url)
+              toast.success('URL disalin!')
+            }} style={{ flexShrink: 0 }}>📋</button>
+          </div>
+          <p style={{ color: 'var(--text-3)', fontSize: 11, marginTop: 4 }}>
+            Webhook Saweria: <code style={{ background: 'var(--surface)', padding: '1px 5px', borderRadius: 4 }}>{url}/webhook/saweria</code>
+            &nbsp;·&nbsp;
+            Trakteer: <code style={{ background: 'var(--surface)', padding: '1px 5px', borderRadius: 4 }}>{url}/webhook/trakteer</code>
+          </p>
+        </div>
+      )}
+
+      {/* Hasil test */}
+      {testResult && (
+        <div style={{
+          padding: '10px 14px', borderRadius: 8, fontSize: 13,
+          background: testResult.ok ? '#22c55e1a' : '#ef44441a',
+          color: testResult.ok ? '#22c55e' : '#ef4444',
+          border: `1px solid ${testResult.ok ? '#22c55e44' : '#ef444444'}`,
+        }}>
+          {testResult.ok ? '✅ ' : '❌ '}{testResult.message}
+        </div>
+      )}
+
+      {/* Error msg */}
+      {errorMsg && (
+        <div style={{
+          padding: '10px 14px', borderRadius: 8, fontSize: 13,
+          background: '#ef44441a', color: '#ef4444',
+          border: '1px solid #ef444444',
+        }}>
+          ⚠️ {errorMsg}
+        </div>
+      )}
+    </Section>
   )
 }
 
@@ -76,6 +309,9 @@ export default function ConfigPage({ toast }) {
         <CopyInput label="Trakteer Webhook URL" value={`${host}/webhook/trakteer`} />
         <CopyInput label="OBS Overlay URL"      value={`${host}/overlay`} />
       </Section>
+
+      {/* Ngrok */}
+      <NgrokSection toast={toast} />
 
       {/* General */}
       <Section title="🎮 General">
