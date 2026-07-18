@@ -139,7 +139,7 @@ async function main() {
   ╚══════════════════════════════════════════════════════╝
   `)
 
-  log('0/5', 'Validasi konfigurasi...')
+  log('0/6', 'Validasi konfigurasi...')
   checkMainField()
   if (!fs.existsSync(path.join(ROOT, 'electron', 'main.js'))) {
     fail('electron/main.js tidak ditemukan!')
@@ -150,7 +150,7 @@ async function main() {
   checkConfigHasNoRebuild()
   ok('Konfigurasi valid')
 
-  log('1/5', 'Build dashboard React...')
+  log('1/6', 'Build dashboard React...')
   const dashDir  = path.join(ROOT, 'dashboard')
   const dashDist = path.join(dashDir, 'dist', 'index.html')
   if (!fs.existsSync(path.join(dashDir, 'node_modules'))) {
@@ -162,11 +162,11 @@ async function main() {
   }
   ok('Dashboard berhasil di-build')
 
-  log('2/5', 'Mempersiapkan assets...')
+  log('2/6', 'Mempersiapkan assets...')
   ensureIcons()
   ok('Assets siap')
 
-  log('3/5', 'Install Electron devDependencies...')
+  log('3/6', 'Install Electron devDependencies...')
   const electronDir = path.join(ROOT, 'electron')
   const electronNM  = path.join(electronDir, 'node_modules')
   const ebPath = path.join(electronNM, 'electron-builder', 'package.json')
@@ -185,16 +185,52 @@ async function main() {
   }
   ok('Electron devDependencies siap')
 
-  log('4/5', 'Verifikasi better-sqlite3 prebuilt binary...')
-  const sqliteBin = path.join(ROOT, 'node_modules', 'better-sqlite3', 'build', 'Release', 'better_sqlite3.node')
-  if (fs.existsSync(sqliteBin)) {
-    ok(`better-sqlite3 binary ditemukan: ${sqliteBin}`)
-  } else {
-    warn('better-sqlite3 binary tidak ditemukan di root node_modules!')
-    warn('Jalankan: npm install better-sqlite3@12.11.1 dulu sebelum build')
+  log('4/6', 'Rebuild better-sqlite3 untuk ABI Electron...')
+  // ════════════════════════════════════════════════════════════════
+  // PENTING: `npm install` di root meng-compile/download better-sqlite3
+  // untuk ABI Node.js SISTEM, bukan untuk ABI Node.js yang dibundle
+  // di dalam Electron. Kalau ini dilewati, better-sqlite3 akan gagal
+  // di-load saat app packaged dijalankan (NODE_MODULE_VERSION mismatch)
+  // — errornya sering silent karena ke-catch di main.js.
+  // ════════════════════════════════════════════════════════════════
+  const electronVersion = pkg.devDependencies.electron.replace(/^[\^~]/, '')
+  const rebuildBin = path.join(ROOT, 'node_modules', '.bin',
+    process.platform === 'win32' ? 'electron-rebuild.cmd' : 'electron-rebuild')
+
+  if (!fs.existsSync(rebuildBin)) {
+    fail([
+      '@electron/rebuild tidak ditemukan di node_modules/.bin!',
+      'Install dulu dengan:',
+      '',
+      '  npm install --save-dev @electron/rebuild',
+      '',
+      'Lalu jalankan ulang: node build-electron.js',
+    ].join('\n  '))
   }
 
-  log('5/5', 'Build installer dan portable .exe...')
+  try {
+    run(`"${rebuildBin}" -f -w better-sqlite3 -v ${electronVersion} -a x64`, ROOT)
+  } catch (e) {
+    fail([
+      'Gagal rebuild better-sqlite3 untuk Electron ' + electronVersion + '.',
+      'Kemungkinan tidak ada prebuilt binary yang cocok untuk kombinasi',
+      'versi/arch ini, dan rebuild dari source butuh Visual Studio Build',
+      'Tools (workload "Desktop development with C++").',
+      '',
+      'Install dari:',
+      '  https://visualstudio.microsoft.com/visual-cpp-build-tools/',
+      '',
+      'Lalu jalankan ulang: node build-electron.js',
+    ].join('\n  '))
+  }
+
+  const sqliteBin = path.join(ROOT, 'node_modules', 'better-sqlite3', 'build', 'Release', 'better_sqlite3.node')
+  if (!fs.existsSync(sqliteBin)) {
+    fail(`Rebuild sukses tapi binary tidak ditemukan di:\n  ${sqliteBin}`)
+  }
+  ok(`better-sqlite3 sudah cocok dengan Electron ${electronVersion} (${sqliteBin})`)
+
+  log('5/6', 'Build installer dan portable .exe...')
   console.log('  (Butuh beberapa menit — download Electron runtime ~80MB pertama kali)\n')
 
   const builderBin = path.join(electronNM, '.bin',

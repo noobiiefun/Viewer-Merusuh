@@ -5,7 +5,7 @@ module.exports = {
   appId:           'com.viewermerusuh.app',
   productName:     'Viewer Merusuh',
   copyright:       'MIT License',
-  electronVersion: '28.3.3',  // harus exact, tanpa ^ atau ~
+  electronVersion: '42.7.0',  // harus exact, tanpa ^ atau ~
   executableName:  'viewer-merusuh',
 
   // ════════════════════════════════════════════════════════════════

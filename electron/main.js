@@ -96,14 +96,46 @@ function ensureUserData() {
 }
 
 function ensureDatabase() {
-  if (fs.existsSync(DB_PATH)) { log('DB exists: ' + DB_PATH); return }
+  if (fs.existsSync(DB_PATH)) { log('DB exists: ' + DB_PATH); return true }
+
+  const setupPath = path.join(ROOT, 'server', 'db', 'setup.js')
+  if (!fs.existsSync(setupPath)) {
+    log('DB setup script not found: ' + setupPath)
+    dialog.showErrorBox(
+      'File Setup Tidak Ditemukan',
+      `Tidak bisa membuat database — file setup tidak ada:\n${setupPath}\n\nCoba install ulang aplikasi.`
+    )
+    return false
+  }
+
   try {
-    const setupPath = path.join(ROOT, 'server', 'db', 'setup.js')
     log('Running DB setup: ' + setupPath)
     require(setupPath)
-    log('DB created')
+
+    if (!fs.existsSync(DB_PATH)) {
+      throw new Error('Setup selesai tapi file DB tidak ditemukan di: ' + DB_PATH)
+    }
+    log('DB created: ' + DB_PATH)
+    return true
   } catch (e) {
-    log('DB setup error: ' + e.message)
+    log('DB setup error: ' + e.message + '\n' + (e.stack || ''))
+
+    // Kasus paling umum: better-sqlite3 native binding tidak cocok
+    // dengan ABI Electron (biasanya karena app di-build tanpa
+    // rebuild native module untuk Electron).
+    const isAbiMismatch = e.message.includes('NODE_MODULE_VERSION')
+      || e.message.includes('bindings file')
+      || e.message.includes('was compiled against a different Node.js version')
+
+    dialog.showErrorBox(
+      'Gagal Membuat Database',
+      isAbiMismatch
+        ? `Database gagal dibuat karena native module (better-sqlite3) tidak kompatibel dengan versi ini.\n\n` +
+          `Ini bug di proses build aplikasi, bukan sesuatu yang bisa diperbaiki dari sisi kamu sebagai user.\n\n` +
+          `Detail: ${e.message}\n\nLog lengkap: ${LOG_PATH}`
+        : `Database gagal dibuat.\n\nDetail: ${e.message}\n\nLog lengkap: ${LOG_PATH}`
+    )
+    return false
   }
 }
 
@@ -382,7 +414,8 @@ app.whenReady().then(async () => {
   }
 
   ensureUserData()
-  ensureDatabase()
+  const dbReady = ensureDatabase()
+  log('DB ready: ' + dbReady)
   setupIPC()
   createWindow()
   setTimeout(createTray, 500)
