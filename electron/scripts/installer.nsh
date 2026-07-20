@@ -24,6 +24,36 @@
   !define MULTIUSER_INSTALLMODE_DEFAULT_CURRENTUSER
 !macroend
 
+; ── Install dependency tambahan: AutoHotkey v2 + ViGEmBus driver ─────
+; File AutoHotkey_setup.exe dan ViGEmBusSetup_x64.exe harus sudah ada di
+; electron/assets/redist/ (lihat PANDUAN_INSTALLER_DEPENDENCY.md) sebelum
+; menjalankan build, supaya bisa diambil oleh perintah File di bawah.
+!macro customInstall
+  SetOutPath "$INSTDIR\redist"
+  File "redist\AutoHotkey_setup.exe"
+  File "redist\ViGEmBusSetup_x64.exe"
+
+  MessageBox MB_YESNO|MB_ICONQUESTION \
+    "Viewer Merusuh butuh 2 komponen tambahan agar fitur kontrol game berjalan:$\n$\n\
+    - AutoHotkey v2 (menjalankan script kontrol)$\n\
+    - ViGEmBus driver (emulasi controller/vJoy)$\n$\n\
+    Instal sekarang? (Windows akan minta konfirmasi admin terpisah untuk driver)" \
+    IDYES installDeps IDNO skipDeps
+
+  installDeps:
+    DetailPrint "Menginstal AutoHotkey v2..."
+    ExecWait '"$INSTDIR\redist\AutoHotkey_setup.exe" /S'
+
+    DetailPrint "Menginstal ViGEmBus driver (butuh izin admin)..."
+    ExecShell "runas" "$INSTDIR\redist\ViGEmBusSetup_x64.exe" "/quiet /norestart"
+    Goto doneDeps
+
+  skipDeps:
+    DetailPrint "Dependency dilewati. Bisa diinstal manual nanti lewat menu Settings di aplikasi."
+
+  doneDeps:
+!macroend
+
 !macro customUnInit
   ; Tidak ada aksi khusus saat uninstall dimulai
 !macroend

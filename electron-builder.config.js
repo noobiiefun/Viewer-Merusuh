@@ -29,6 +29,7 @@ module.exports = {
     'electron/main.js',
     'electron/preload.js',
     'electron/loading.html',
+    'electron/wizard.html',
     'server/**/*',
     'dashboard/dist/**/*',
     'overlay/**/*',
@@ -63,6 +64,7 @@ module.exports = {
     'node_modules/bindings/**/*',
     'node_modules/file-uri-to-path/**/*',
     'node_modules/node-gyp-build/**/*',
+    'node_modules/ngrok/**/*',
   ],
 
   extraResources: [
@@ -71,6 +73,7 @@ module.exports = {
     { from: 'electron/assets/icon.ico',      to: 'icon.ico' },
     { from: 'adapters', to: 'app/adapters', filter: ['**/*'] },
     { from: 'plugins',  to: 'app/plugins',  filter: ['**/*'] },
+    { from: 'electron/assets/redist', to: 'redist', filter: ['**/*'] },
   ],
 
   extraFiles: [
@@ -80,8 +83,7 @@ module.exports = {
 
   win: {
     target: [
-      { target: 'nsis',     arch: ['x64'] },
-      { target: 'portable', arch: ['x64'] },
+      { target: 'nsis', arch: ['x64'] },
     ],
     icon: 'electron/assets/icon.ico',
     requestedExecutionLevel: 'asInvoker',
@@ -100,10 +102,6 @@ module.exports = {
     installerHeaderIcon:                'electron/assets/icon.ico',
     license:                            'LICENSE',
     artifactName:                       'viewer-merusuh-setup-${version}.exe',
-  },
-
-  portable: {
-    artifactName: 'viewer-merusuh-${version}-portable.exe',
   },
 
   publish: {

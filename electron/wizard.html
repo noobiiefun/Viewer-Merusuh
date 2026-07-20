@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Setup Awal — Viewer Merusuh</title>
+<style>
+  :root {
+    --bg: #0d0f14; --panel: #161a23; --accent: #7c5cff;
+    --accent2: #22c55e; --danger: #ef4444; --text: #e6e8ef; --muted: #8b93a7;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    display: flex; align-items: center; justify-content: center;
+    height: 100vh; overflow: hidden;
+  }
+  .wizard { width: 640px; max-width: 92vw; background: var(--panel);
+    border-radius: 16px; padding: 32px; box-shadow: 0 20px 60px rgba(0,0,0,.4); }
+  .steps { display: flex; gap: 6px; margin-bottom: 24px; }
+  .steps span { flex: 1; height: 4px; border-radius: 4px; background: #2a2f3d; }
+  .steps span.done { background: var(--accent); }
+  h2 { margin: 0 0 4px; font-size: 20px; }
+  p.sub { color: var(--muted); margin: 0 0 20px; font-size: 13px; }
+  .row { display: flex; align-items: center; justify-content: space-between;
+    background: #1d2230; padding: 12px 16px; border-radius: 10px; margin-bottom: 10px; }
+  .row .label { font-size: 14px; }
+  .badge { font-size: 12px; padding: 3px 10px; border-radius: 20px; }
+  .badge.ok { background: rgba(34,197,94,.15); color: var(--accent2); }
+  .badge.bad { background: rgba(239,68,68,.15); color: var(--danger); }
+  input, select {
+    width: 100%; padding: 11px 12px; border-radius: 8px; border: 1px solid #2a2f3d;
+    background: #1d2230; color: var(--text); font-size: 14px; margin-bottom: 12px;
+  }
+  label.field-label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 6px; }
+  .btn { border: none; padding: 11px 20px; border-radius: 8px; font-size: 14px;
+    cursor: pointer; font-weight: 600; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-ghost { background: transparent; color: var(--muted); }
+  .btn-small { padding: 6px 12px; font-size: 12px; }
+  .actions { display: flex; justify-content: space-between; margin-top: 24px; }
+  .url-box { display: flex; gap: 8px; align-items: center; background: #1d2230;
+    padding: 10px 14px; border-radius: 8px; font-family: monospace; font-size: 13px;
+    word-break: break-all; margin-bottom: 12px; }
+  .hint { font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .spinner { width: 14px; height: 14px; border: 2px solid #444; border-top-color: var(--accent);
+    border-radius: 50%; animation: spin .8s linear infinite; display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .step { display: none; }
+  .step.active { display: block; }
+</style>
+</head>
+<body>
+<div class="wizard">
+  <div class="steps">
+    <span id="dot1" class="done"></span><span id="dot2"></span>
+    <span id="dot3"></span><span id="dot4"></span>
+  </div>
+
+  <!-- STEP 1: Cek dependency -->
+  <div class="step active" id="step1">
+    <h2>👋 Selamat datang di Viewer Merusuh</h2>
+    <p class="sub">Sebelum mulai, kita cek dulu komponen yang dibutuhkan.</p>
+
+    <div class="row"><span class="label">AutoHotkey v2</span>
+      <span class="badge" id="badge-ahk">Mengecek...</span></div>
+    <div class="row"><span class="label">ViGEmBus Driver (vJoy)</span>
+      <span class="badge" id="badge-vigem">Mengecek...</span></div>
+    <div class="row"><span class="label">Ngrok (bawaan aplikasi)</span>
+      <span class="badge ok">✓ Siap</span></div>
+
+    <p class="hint" id="dep-hint" style="margin-top:12px;"></p>
+
+    <div class="actions">
+      <span></span>
+      <button class="btn btn-primary" id="next1">Lanjut →</button>
+    </div>
+  </div>
+
+  <!-- STEP 2: Platform donasi (WAJIB) -->
+  <div class="step" id="step2">
+    <h2>💰 Platform Donasi <span style="color:#ef4444;font-size:13px;">*wajib</span></h2>
+    <p class="sub">Pilih platform donasi yang kamu pakai, dan masukkan API key / stream key-nya.</p>
+
+    <label class="field-label">Platform</label>
+    <select id="platform">
+      <option value="saweria">Saweria</option>
+      <option value="trakteer">Trakteer</option>
+    </select>
+
+    <label class="field-label" id="key-label">Saweria Stream Key</label>
+    <input type="text" id="apiKey" placeholder="Tempel API key / stream key di sini">
+
+    <p class="hint">Stream key Saweria: Dashboard Saweria → Settings → Stream Key.<br>
+       API key Trakteer: Trakteer → Pengaturan → Integrasi.</p>
+
+    <div class="actions">
+      <button class="btn btn-ghost" id="back2">← Kembali</button>
+      <button class="btn btn-primary" id="next2">Simpan & Lanjut →</button>
+    </div>
+  </div>
+
+  <!-- STEP 3: Ngrok webhook (WAJIB) -->
+  <div class="step" id="step3">
+    <h2>🌐 Hubungkan Webhook <span style="color:#ef4444;font-size:13px;">*wajib</span></h2>
+    <p class="sub">Ini URL publik untuk menerima notifikasi donasi. Paste ke pengaturan webhook di platform donasimu.</p>
+
+    <div id="ngrok-loading"><span class="spinner"></span> Membuka tunnel ngrok...</div>
+    <div class="url-box" id="ngrok-url" style="display:none;"></div>
+    <button class="btn btn-small btn-ghost" id="copyUrl" style="display:none;">📋 Copy URL</button>
+
+    <p class="hint" style="margin-top:12px;">
+      Masuk ke dashboard Saweria/Trakteer → cari menu Webhook/Integrasi → tempel URL di atas.
+    </p>
+
+    <div class="actions">
+      <button class="btn btn-ghost" id="back3">← Kembali</button>
+      <button class="btn btn-primary" id="next3">Sudah dipasang, Lanjut →</button>
+    </div>
+  </div>
+
+  <!-- STEP 4: Opsional -->
+  <div class="step" id="step4">
+    <h2>⚙️ Pengaturan Tambahan <span style="color:var(--muted);font-size:13px;">(opsional, boleh dilewati)</span></h2>
+    <p class="sub">Bisa diubah kapan saja lewat menu Settings di aplikasi.</p>
+
+    <label class="field-label">Port server (default: 3000)</label>
+    <input type="text" id="port" placeholder="3000">
+
+    <label class="field-label">Game / Adapter AHK default</label>
+    <select id="gameAdapter">
+      <option value="">-- Pilih nanti di dashboard --</option>
+      <option value="gta5">GTA V</option>
+      <option value="beamng">BeamNG.drive</option>
+    </select>
+
+    <div class="actions">
+      <button class="btn btn-ghost" id="back4">← Kembali</button>
+      <button class="btn btn-primary" id="finish">Selesai, Buka Dashboard 🎉</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const api = window.setupWizard; // diexpose lewat preload.js
+  let step = 1;
+
+  function goTo(n) {
+    document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+    document.getElementById('step' + n).classList.add('active');
+    for (let i = 1; i <= 4; i++) {
+      document.getElementById('dot' + i).classList.toggle('done', i <= n);
+    }
+    step = n;
+  }
+
+  // ── Step 1: cek dependency ──────────────────────────────
+  async function checkDeps() {
+    const result = await api.checkDependencies();
+    const ahkBadge = document.getElementById('badge-ahk');
+    const vigemBadge = document.getElementById('badge-vigem');
+
+    ahkBadge.textContent = result.ahk ? '✓ Terpasang' : '✗ Belum';
+    ahkBadge.className = 'badge ' + (result.ahk ? 'ok' : 'bad');
+    vigemBadge.textContent = result.vigem ? '✓ Terpasang' : '✗ Belum';
+    vigemBadge.className = 'badge ' + (result.vigem ? 'ok' : 'bad');
+
+    const hint = document.getElementById('dep-hint');
+    if (!result.ahk || !result.vigem) {
+      hint.innerHTML = '⚠️ Ada komponen yang belum terpasang. Ini seharusnya sudah otomatis ' +
+        'ter-install saat kamu menjalankan installer tadi. Kalau belum, cek folder ' +
+        '<code>Program Files\\Viewer Merusuh\\redist</code> dan jalankan manual, lalu restart aplikasi.';
+    } else {
+      hint.textContent = '✅ Semua komponen siap.';
+    }
+  }
+  checkDeps();
+
+  // ── Step 2: platform donasi ──────────────────────────────
+  document.getElementById('platform').addEventListener('change', e => {
+    document.getElementById('key-label').textContent =
+      e.target.value === 'saweria' ? 'Saweria Stream Key' : 'Trakteer API Key';
+  });
+
+  document.getElementById('next2').addEventListener('click', async () => {
+    const platform = document.getElementById('platform').value;
+    const key = document.getElementById('apiKey').value.trim();
+    if (!key) { alert('API key / stream key wajib diisi.'); return; }
+
+    await api.saveConfig({
+      SAWERIA_STREAM_KEY: platform === 'saweria' ? key : '',
+      TRAKTEER_API_KEY:   platform === 'trakteer' ? key : '',
+      DONATION_PLATFORM:  platform,
+    });
+    goTo(3);
+    startNgrok();
+  });
+
+  // ── Step 3: ngrok ──────────────────────────────
+  async function startNgrok() {
+    const loadingEl = document.getElementById('ngrok-loading');
+    const urlBox = document.getElementById('ngrok-url');
+    const copyBtn = document.getElementById('copyUrl');
+    try {
+      const { url } = await api.startNgrok();
+      loadingEl.style.display = 'none';
+      urlBox.style.display = 'flex';
+      urlBox.textContent = url + '/webhook';
+      copyBtn.style.display = 'inline-block';
+      copyBtn.onclick = () => api.copyToClipboard(url + '/webhook');
+    } catch (err) {
+      loadingEl.innerHTML = '❌ Gagal membuka tunnel: ' + err.message +
+        '<br><span class="hint">Cek koneksi internet, lalu klik Lanjut untuk coba lagi nanti dari Settings.</span>';
+    }
+  }
+
+  // ── Navigasi ──────────────────────────────
+  document.getElementById('next1').addEventListener('click', () => goTo(2));
+  document.getElementById('back2').addEventListener('click', () => goTo(1));
+  document.getElementById('back3').addEventListener('click', () => goTo(2));
+  document.getElementById('next3').addEventListener('click', () => goTo(4));
+  document.getElementById('back4').addEventListener('click', () => goTo(3));
+
+  document.getElementById('finish').addEventListener('click', async () => {
+    const port = document.getElementById('port').value.trim();
+    const gameAdapter = document.getElementById('gameAdapter').value;
+    await api.saveConfig({
+      ...(port ? { PORT: port } : {}),
+      ...(gameAdapter ? { DEFAULT_GAME_ADAPTER: gameAdapter } : {}),
+    });
+    await api.completeSetup();
+  });
+</script>
+</body>
+</html>
