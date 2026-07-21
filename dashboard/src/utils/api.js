@@ -69,6 +69,8 @@ export const api = {
   saveEnv:            (body)  => request('PUT', '/api/env', body),
   getEnvStatus:       ()      => request('GET', '/api/env/status'),
   generateSecret:     ()      => request('POST', '/api/env/generate-secret'),
+  revealEnvSecret:    (key)   => request('GET', `/api/env/reveal/${encodeURIComponent(key)}`),
+  testEnvField:       (key)   => request('POST', '/api/env/test', { key }),
 
   // Ngrok tunnel
   getNgrokStatus:     ()      => request('GET',  '/api/ngrok/status'),

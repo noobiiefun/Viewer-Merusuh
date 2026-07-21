@@ -102,6 +102,10 @@ module.exports = {
     installerHeaderIcon:                'electron/assets/icon.ico',
     license:                            'LICENSE',
     artifactName:                       'viewer-merusuh-setup-${version}.exe',
+    // ⚠️ INI YANG KEMARIN HILANG — tanpa baris ini, installer.nsh
+    // tidak pernah ikut di-load oleh electron-builder sama sekali,
+    // jadi macro customInstall (install AHK+ViGEmBus) tidak pernah jalan.
+    include: 'electron/scripts/installer.nsh',
   },
 
   publish: {

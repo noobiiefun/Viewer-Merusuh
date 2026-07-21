@@ -217,6 +217,15 @@ function writeEnv(data) {
   fs.writeFileSync(ENV_PATH, lines.join('\n'), 'utf8')
 }
 
+// ── Cari definisi field di schema berdasarkan key ────────────────────
+function findField(key) {
+  for (const cat of ENV_SCHEMA) {
+    const f = cat.fields.find(f => f.key === key)
+    if (f) return f
+  }
+  return null
+}
+
 // ────────────────────────────────────────────────────────────────────
 // GET /api/env — baca semua nilai .env (secrets di-mask)
 // ────────────────────────────────────────────────────────────────────
@@ -242,6 +251,21 @@ router.get('/', (req, res) => {
     schema:  ENV_SCHEMA,
     envExists: fs.existsSync(ENV_PATH),
   })
+})
+
+// ────────────────────────────────────────────────────────────────────
+// GET /api/env/reveal/:key — kirim nilai ASLI (tidak di-mask) satu field
+// Dipakai tombol 👁️ di dashboard. Hanya boleh untuk key yang memang
+// terdaftar di ENV_SCHEMA sebagai type 'secret' — mencegah endpoint ini
+// disalahgunakan untuk baca sembarang env var.
+// ────────────────────────────────────────────────────────────────────
+router.get('/reveal/:key', (req, res) => {
+  const field = findField(req.params.key)
+  if (!field || field.type !== 'secret') {
+    return res.status(400).json({ success: false, error: 'Field tidak ditemukan atau bukan secret field' })
+  }
+  const data = readEnv()
+  res.json({ success: true, key: field.key, value: data[field.key] || '' })
 })
 
 // ────────────────────────────────────────────────────────────────────
@@ -283,6 +307,82 @@ router.post('/generate-secret', (req, res) => {
   const secret = crypto.randomBytes(32).toString('hex')
   res.json({ success: true, secret })
 })
+
+// ────────────────────────────────────────────────────────────────────
+// POST /api/env/test — cek format value + kapan terakhir menerima
+// webhook ASLI dari platform tsb (bukan simulasi Testing Area).
+//
+// CATATAN JUJUR: Saweria & Trakteer tidak menyediakan endpoint publik
+// untuk "validasi key" secara langsung. Jadi ini BUKAN pengecekan live
+// ke server mereka — ini adalah:
+//   1) Cek format (menangkap kesalahan umum, misalnya paste URL utuh
+//      alih-alih stream key-nya saja)
+//   2) Cek riwayat: kapan terakhir kali donation_logs mencatat donasi
+//      asli dari platform ini (bukti nyata bahwa key-nya benar-benar
+//      berfungsi, karena webhook Saweria/Trakteer hanya akan diterima
+//      kalau signature/header key-nya valid)
+// Body: { key }
+// ────────────────────────────────────────────────────────────────────
+router.post('/test', (req, res) => {
+  const { key } = req.body
+  const field = findField(key)
+  if (!field || !field.testable) {
+    return res.status(400).json({ success: false, error: 'Field ini tidak punya test connection' })
+  }
+
+  const data  = readEnv()
+  const value = data[field.key] || ''
+
+  const format = checkFormat(field.testType, value)
+
+  let lastReceived = null
+  try {
+    const { getDB } = require('../db/database')
+    const db  = getDB()
+    const row = db.prepare(
+      `SELECT created_at, donator_name, amount FROM donation_logs
+       WHERE platform = ? AND status != 'test'
+       ORDER BY created_at DESC LIMIT 1`
+    ).get(field.testType)
+    if (row) lastReceived = row
+  } catch (err) {
+    // Kalau tabel/DB belum siap, jangan gagalkan seluruh request
+    lastReceived = null
+  }
+
+  res.json({
+    success: true,
+    format,          // { valid: bool, message: string }
+    lastReceived,    // { created_at, donator_name, amount } | null
+  })
+})
+
+// ── Validasi format sesuai platform ───────────────────────────────────
+function checkFormat(testType, value) {
+  if (!value) {
+    return { valid: false, message: 'Belum diisi.' }
+  }
+  if (value.startsWith('http://') || value.startsWith('https://')) {
+    return {
+      valid:   false,
+      message: testType === 'saweria'
+        ? 'Ini kelihatan seperti URL widget, bukan Stream Key. Ambil hanya bagian setelah "streamKey=" di URL tersebut.'
+        : 'Ini kelihatan seperti URL, bukan API key.',
+    }
+  }
+  if (testType === 'saweria') {
+    // Stream key Saweria umumnya hex 32 karakter
+    if (!/^[a-f0-9]{16,64}$/i.test(value)) {
+      return { valid: false, message: 'Format tidak seperti Stream Key Saweria yang biasa (hex, 16–64 karakter).' }
+    }
+  }
+  if (testType === 'trakteer') {
+    if (value.length < 10) {
+      return { valid: false, message: 'API Key Trakteer biasanya lebih panjang dari ini — cek lagi apakah ke-paste lengkap.' }
+    }
+  }
+  return { valid: true, message: 'Format terlihat benar.' }
+}
 
 // ────────────────────────────────────────────────────────────────────
 // GET /api/env/status — cek apakah .env sudah ada dan field wajib terisi
