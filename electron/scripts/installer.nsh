@@ -2,10 +2,17 @@
 ; NSIS script untuk kustomisasi installer Viewer Merusuh
 ; Di-include oleh electron-builder secara otomatis
 
+!include "LogicLib.nsh"
+
 ; ── Cek Node.js sebelum install ──────────────────────────────────────
 !macro customInit
-  ; Cek apakah Node.js sudah terinstall
-  nsExec::ExecToOutput 'node --version' $0
+  ; Cek apakah Node.js sudah terinstall.
+  ; PENTING: nsExec::ExecToOutput TIDAK ADA di plugin nsExec — fungsi
+  ; yang valid cuma Exec, ExecToLog, ExecToStack. ExecToStack mengirim
+  ; exit code + output ke stack, diambil pakai Pop.
+  nsExec::ExecToStack 'node --version'
+  Pop $0   ; exit code
+  Pop $1   ; output (tidak dipakai di sini, cukup exit code)
   ${If} $0 != 0
     MessageBox MB_YESNO|MB_ICONQUESTION \
       "Node.js tidak ditemukan di sistem kamu.$\n$\nViewer Merusuh membutuhkan Node.js v18 atau lebih baru.$\n$\nMau membuka halaman download Node.js sekarang?" \
