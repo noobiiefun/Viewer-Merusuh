@@ -4,11 +4,19 @@
 // PERUBAHAN UTAMA:
 // Server Express dijalankan LANGSUNG di main process (bukan spawn child)
 // karena saat packaged, process.execPath = Electron.exe bukan node.exe
+//
+// PERUBAHAN BARU (first-run wizard + bundling dependency):
+// - Tambah checkAhkInstalled() / checkVigemInstalled() untuk cek dependency
+// - Tambah updateEnvFile() untuk menulis config dari wizard ke .env
+// - Tambah startNgrokTunnel() menggunakan package 'ngrok' (bukan '@ngrok/ngrok')
+// - Tambah loadWizard() — dipanggil alih-alih loadDashboard() kalau setup belum selesai
+// - Tambah IPC handlers wizard-* untuk komunikasi dengan electron/wizard.html
 
 const { app, BrowserWindow, Tray, Menu, shell, dialog, ipcMain, nativeImage, clipboard } = require('electron')
 const path = require('path')
 const fs   = require('fs')
 const net  = require('net')
+const { execSync } = require('child_process')
 
 // ── Path resolution ────────────────────────────────────────────────────
 const IS_PACKAGED = app.isPackaged
@@ -37,6 +45,7 @@ let serverPort  = 3000
 let serverReady = false
 let isQuitting  = false
 let httpServer  = null  // referensi ke server Express
+let ngrokUrl    = null  // cache URL ngrok supaya tidak dibuka dua kali
 
 // ─────────────────────────────────────────────────────────────────────
 // Baca PORT dari .env
@@ -66,6 +75,90 @@ function isPortFree(port) {
 }
 
 // ─────────────────────────────────────────────────────────────────────
+// Cek dependency eksternal (AutoHotkey v2 & ViGEmBus driver)
+// Dipanggil dari wizard first-run untuk menampilkan status ✅/❌
+// ─────────────────────────────────────────────────────────────────────
+function checkAhkInstalled() {
+  // Cek lewat PATH dulu
+  try {
+    execSync('where AutoHotkey64.exe', { stdio: 'ignore' })
+    return true
+  } catch {}
+  // Fallback: cek lokasi default instalasi (kalau installer tidak menambah ke PATH)
+  const defaultPath = 'C:\\Program Files\\AutoHotkey\\v2\\AutoHotkey64.exe'
+  return fs.existsSync(defaultPath)
+}
+
+function checkVigemInstalled() {
+  try {
+    execSync('reg query "HKLM\\SYSTEM\\CurrentControlSet\\Services\\ViGEmBus"', { stdio: 'ignore' })
+    return true
+  } catch { return false }
+}
+
+function isSetupComplete() {
+  return process.env.SETUP_COMPLETE === 'true'
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Tulis/update key=value ke file .env di userData, sinkron ke process.env
+// Dipakai oleh wizard untuk menyimpan platform donasi, API key, dll.
+// ─────────────────────────────────────────────────────────────────────
+function updateEnvFile(updates) {
+  let lines = fs.existsSync(ENV_PATH)
+    ? fs.readFileSync(ENV_PATH, 'utf8').split('\n')
+    : []
+
+  for (const [key, value] of Object.entries(updates)) {
+    const idx = lines.findIndex(l => l.trim().startsWith(key + '='))
+    const line = `${key}=${value}`
+    if (idx >= 0) lines[idx] = line
+    else lines.push(line)
+    process.env[key] = String(value)
+  }
+
+  fs.writeFileSync(ENV_PATH, lines.filter(Boolean).join('\n') + '\n')
+  log('Env updated: ' + Object.keys(updates).join(', '))
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Mulai tunnel ngrok — pakai '@ngrok/ngrok' (SDK resmi ngrok Inc).
+//
+// KENAPA PINDAH dari package 'ngrok' (bubenshchykov) yang sebelumnya
+// dipakai: package itu sudah 3+ tahun stuck di versi beta, banyak issue
+// terbuka tanpa direspons, dan komunitasnya sendiri sudah menyarankan
+// pindah ke '@ngrok/ngrok' resmi. '@ngrok/ngrok' juga lebih ramah untuk
+// di-bundle offline karena native binary-nya terpasang sebagai paket
+// platform-specific biasa (mirip sharp/esbuild), bukan lewat postinstall
+// script yang download dari internet.
+//
+// API-nya beda dari versi lama: forward() mengembalikan objek "listener"
+// (bukan string URL langsung) — ambil URL-nya lewat listener.url().
+// ─────────────────────────────────────────────────────────────────────
+let ngrokListener = null // simpan objek listener (bukan cuma string URL) — dibutuhkan untuk listener.close()
+
+async function startNgrokTunnel() {
+  if (ngrokUrl) return ngrokUrl // sudah jalan, jangan buka dua kali
+
+  const ngrok = require('@ngrok/ngrok')
+  ngrokListener = await ngrok.forward({
+    addr: serverPort,
+    authtoken: process.env.NGROK_AUTHTOKEN || undefined,
+  })
+  ngrokUrl = ngrokListener.url()
+  log('Ngrok tunnel: ' + ngrokUrl)
+  return ngrokUrl
+}
+
+async function stopNgrokTunnel() {
+  if (ngrokListener) {
+    try { await ngrokListener.close() } catch (e) { log('Ngrok close error: ' + e.message) }
+    ngrokListener = null
+    ngrokUrl = null
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // Setup .env dan DB di userData
 // ─────────────────────────────────────────────────────────────────────
 function ensureUserData() {
@@ -75,7 +168,7 @@ function ensureUserData() {
     const src = path.join(ROOT, '.env.example')
     const content = fs.existsSync(src)
       ? fs.readFileSync(src, 'utf8')
-      : 'PORT=3000\nNODE_ENV=production\nSAWERIA_STREAM_KEY=\nTRAKTEER_API_KEY=\nAHK_EXE_PATH=C:\\Program Files\\AutoHotkey\\v2\\AutoHotkey64.exe\nPLUGIN_SECRET=\n'
+      : 'PORT=3000\nNODE_ENV=production\nSAWERIA_STREAM_KEY=\nTRAKTEER_API_KEY=\nAHK_EXE_PATH=C:\\Program Files\\AutoHotkey\\v2\\AutoHotkey64.exe\nPLUGIN_SECRET=\nSETUP_COMPLETE=false\n'
     fs.writeFileSync(ENV_PATH, content)
     log('Created .env: ' + ENV_PATH)
   }
@@ -96,14 +189,46 @@ function ensureUserData() {
 }
 
 function ensureDatabase() {
-  if (fs.existsSync(DB_PATH)) { log('DB exists: ' + DB_PATH); return }
+  if (fs.existsSync(DB_PATH)) { log('DB exists: ' + DB_PATH); return true }
+
+  const setupPath = path.join(ROOT, 'server', 'db', 'setup.js')
+  if (!fs.existsSync(setupPath)) {
+    log('DB setup script not found: ' + setupPath)
+    dialog.showErrorBox(
+      'File Setup Tidak Ditemukan',
+      `Tidak bisa membuat database — file setup tidak ada:\n${setupPath}\n\nCoba install ulang aplikasi.`
+    )
+    return false
+  }
+
   try {
-    const setupPath = path.join(ROOT, 'server', 'db', 'setup.js')
     log('Running DB setup: ' + setupPath)
     require(setupPath)
-    log('DB created')
+
+    if (!fs.existsSync(DB_PATH)) {
+      throw new Error('Setup selesai tapi file DB tidak ditemukan di: ' + DB_PATH)
+    }
+    log('DB created: ' + DB_PATH)
+    return true
   } catch (e) {
-    log('DB setup error: ' + e.message)
+    log('DB setup error: ' + e.message + '\n' + (e.stack || ''))
+
+    // Kasus paling umum: better-sqlite3 native binding tidak cocok
+    // dengan ABI Electron (biasanya karena app di-build tanpa
+    // rebuild native module untuk Electron).
+    const isAbiMismatch = e.message.includes('NODE_MODULE_VERSION')
+      || e.message.includes('bindings file')
+      || e.message.includes('was compiled against a different Node.js version')
+
+    dialog.showErrorBox(
+      'Gagal Membuat Database',
+      isAbiMismatch
+        ? `Database gagal dibuat karena native module (better-sqlite3) tidak kompatibel dengan versi ini.\n\n` +
+          `Ini bug di proses build aplikasi, bukan sesuatu yang bisa diperbaiki dari sisi kamu sebagai user.\n\n` +
+          `Detail: ${e.message}\n\nLog lengkap: ${LOG_PATH}`
+        : `Database gagal dibuat.\n\nDetail: ${e.message}\n\nLog lengkap: ${LOG_PATH}`
+    )
+    return false
   }
 }
 
@@ -141,8 +266,15 @@ async function startServer() {
     log('Server module loaded')
     serverReady = true
 
-    // Load dashboard setelah server siap
-    setTimeout(loadDashboard, 1500)
+    // Setelah server siap: kalau setup wizard belum selesai, tampilkan wizard.
+    // Kalau sudah, langsung ke dashboard seperti biasa.
+    setTimeout(() => {
+      if (isSetupComplete()) {
+        loadDashboard()
+      } else {
+        loadWizard()
+      }
+    }, 1500)
 
   } catch (e) {
     log('Server start error: ' + e.message + '\n' + e.stack)
@@ -164,6 +296,22 @@ function loadDashboard() {
     log('loadURL failed: ' + err.message + ' — retry in 2s')
     setTimeout(loadDashboard, 2000)
   })
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Load halaman first-run setup wizard (electron/wizard.html)
+// Ditampilkan hanya sekali, sampai SETUP_COMPLETE=true ditulis ke .env
+// ─────────────────────────────────────────────────────────────────────
+function loadWizard() {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  const wizardPath = path.join(__dirname, 'wizard.html')
+  if (!fs.existsSync(wizardPath)) {
+    log('wizard.html not found, fallback to dashboard: ' + wizardPath)
+    loadDashboard()
+    return
+  }
+  log('Loading wizard: ' + wizardPath)
+  mainWindow.loadFile(wizardPath).catch(err => log('loadWizard failed: ' + err.message))
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -347,6 +495,38 @@ function setupIPC() {
     await startServer()
     return { ok: true }
   })
+
+  // ── IPC khusus first-run wizard ──────────────────────────────────
+  ipcMain.handle('wizard-check-deps', () => ({
+    ahk:   checkAhkInstalled(),
+    vigem: checkVigemInstalled(),
+  }))
+
+  ipcMain.handle('wizard-save-config', (e, data) => {
+    updateEnvFile(data)
+    return { ok: true }
+  })
+
+  ipcMain.handle('wizard-start-ngrok', async () => {
+    try {
+      const url = await startNgrokTunnel()
+      return { url }
+    } catch (err) {
+      log('Ngrok start error: ' + err.message)
+      throw new Error(err.message)
+    }
+  })
+
+  ipcMain.handle('wizard-copy', (e, text) => {
+    clipboard.writeText(text)
+    return { ok: true }
+  })
+
+  ipcMain.handle('wizard-complete', () => {
+    updateEnvFile({ SETUP_COMPLETE: 'true' })
+    loadDashboard()
+    return { ok: true }
+  })
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -382,7 +562,8 @@ app.whenReady().then(async () => {
   }
 
   ensureUserData()
-  ensureDatabase()
+  const dbReady = ensureDatabase()
+  log('DB ready: ' + dbReady)
   setupIPC()
   createWindow()
   setTimeout(createTray, 500)
@@ -403,6 +584,7 @@ app.on('before-quit', () => {
   log('Quitting...')
   isQuitting = true
   if (httpServer) { try { httpServer.close() } catch {} }
+  stopNgrokTunnel().catch(() => {})
 })
 
 process.on('uncaughtException', err => {
