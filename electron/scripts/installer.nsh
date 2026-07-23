@@ -37,8 +37,8 @@
 ; menjalankan build, supaya bisa diambil oleh perintah File di bawah.
 !macro customInstall
   SetOutPath "$INSTDIR\redist"
-  File "redist\AutoHotkey_setup.exe"
-  File "redist\ViGEmBusSetup_x64.exe"
+  File "${BUILD_RESOURCES_DIR}\redist\AutoHotkey_setup.exe"
+  File "${BUILD_RESOURCES_DIR}\redist\ViGEmBusSetup_x64.exe"
 
   MessageBox MB_YESNO|MB_ICONQUESTION \
     "Viewer Merusuh butuh 2 komponen tambahan agar fitur kontrol game berjalan:$\n$\n\
