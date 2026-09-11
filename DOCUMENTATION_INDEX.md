@@ -69,11 +69,12 @@ Jika Anda ingin mengembangkan atau berkontribusi ke proyek:
 
 #### Build & Deployment
 - **[docs/BUILD_ELECTRON.md](docs/BUILD_ELECTRON.md)** — Build .exe installer & portable
-- **[PATCH_INSTRUCTIONS.md](PATCH_INSTRUCTIONS.md)** — Instruksi patch update
-- **[UPLOAD_GUIDE.md](UPLOAD_GUIDE.md)** — Panduan upload release
-- **[VERSION_BUMP.md](VERSION_BUMP.md)** — Prosedur bump version
-- **[CHANGELOG.md](CHANGELOG.md)** — Riwayat perubahan versi
-- **[RELEASE_NOTES.md](RELEASE_NOTES.md)** — Catatan rilis
+- **[docs/PATCH_INSTRUCTIONS.md](docs/PATCH_INSTRUCTIONS.md)** — Instruksi patch update
+- **[docs/UPLOAD_GUIDE.md](docs/UPLOAD_GUIDE.md)** — Panduan upload release
+- **[docs/VERSION_BUMP.md](docs/VERSION_BUMP.md)** — Prosedur bump version
+- **[docs/CHANGELOG.md](docs/CHANGELOG.md)** — Riwayat perubahan versi
+- **[docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md)** — Catatan rilis
+- **[docs/INTEGRASI.md](docs/INTEGRASI.md)** — Panduan integrasi dengan sistem eksternal
 
 #### Plugin Development
 - **[plugins/gta5/README.md](plugins/gta5/README.md)** — Plugin GTA 5 (ScriptHookV .NET)
@@ -95,7 +96,7 @@ Jika Anda mengintegrasikan Viewer Merusuh dengan sistem lain:
 - **[rc-module/docs/API_REFERENCE.md](rc-module/docs/API_REFERENCE.md)** — RC Module API
 
 #### Integrasi Eksternal
-- **[INTEGRASI.md](INTEGRASI.md)** — Panduan integrasi umum
+- **[docs/INTEGRASI.md](docs/INTEGRASI.md)** — Panduan integrasi umum
 - **[rc-module/docs/INTEGRATION_GUIDE.md](rc-module/docs/INTEGRATION_GUIDE.md)** — Integrasi RC Module
 - **[client/docs/README.md#9-integrasi-dengan-server](client/docs/README.md#9-integrasi-dengan-server)** — Integrasi Client Module
 
@@ -115,24 +116,25 @@ viewer-merusuh/
 ├── 📘 DOKUMENTASI UTAMA
 │   ├── README.md                      ← Mulai dari sini!
 │   ├── DEVELOPER_GUIDE.md             ← Dokumentasi developer lengkap
-│   ├── INTEGRASI.md                   ← Panduan integrasi
-│   ├── CHANGELOG.md                   ← Riwayat versi
-│   ├── RELEASE_NOTES.md               ← Catatan rilis
-│   ├── VERSION_BUMP.md                ← Prosedur versioning
-│   ├── PATCH_INSTRUCTIONS.md          ← Instruksi patch
-│   └── UPLOAD_GUIDE.md                ← Panduan upload
+│   └── DOCUMENTATION_INDEX.md         ← Pusat navigasi dokumentasi
 │
 ├── 📙 DOKUMENTASI TEKNIS (docs/)
 │   ├── BUILD_ELECTRON.md              ← Build .exe installer
 │   ├── ADDING_GAMES.md                ← Tambah game/AHK baru
-│   └── VJOY_GUIDE.md                  ← Setup ViGEmBus
+│   ├── VJOY_GUIDE.md                  ← Setup ViGEmBus
+│   ├── INTEGRASI.md                   ← Panduan integrasi sistem eksternal
+│   ├── CHANGELOG.md                   ← Riwayat versi
+│   ├── RELEASE_NOTES.md               ← Catatan rilis
+│   ├── VERSION_BUMP.md                ← Prosedur versioning
+│   ├── PATCH_INSTRUCTIONS.md          ← Instruksi patch
+│   └── UPLOAD_GUIDE.md                ← Panduan upload release
 │
-├── 📗 CLIENT MODULE (client/)
+├── 📗 CLIENT MODULE (client/) — *Tetap di lokasi terpisah*
 │   ├── README.md                      ← Quick start client
 │   └── docs/
 │       └── README.md                  ← Dokumentasi lengkap client
 │
-├── 📕 RC MODULE (rc-module/)
+├── 📕 RC MODULE (rc-module/) — *Tetap di lokasi terpisah*
 │   ├── README.md                      ← Overview RC Module
 │   ├── docs/
 │   │   ├── API_REFERENCE.md           ← API RC Module
@@ -217,11 +219,12 @@ viewer-merusuh/
 | Topik | Dokumen | Section |
 |-------|---------|---------|
 | Build Electron app | [docs/BUILD_ELECTRON.md](docs/BUILD_ELECTRON.md) | — |
-| Patch instructions | [PATCH_INSTRUCTIONS.md](PATCH_INSTRUCTIONS.md) | — |
-| Upload release | [UPLOAD_GUIDE.md](UPLOAD_GUIDE.md) | — |
-| Version bump | [VERSION_BUMP.md](VERSION_BUMP.md) | — |
-| Changelog | [CHANGELOG.md](CHANGELOG.md) | — |
-| Release notes | [RELEASE_NOTES.md](RELEASE_NOTES.md) | — |
+| Patch instructions | [docs/PATCH_INSTRUCTIONS.md](docs/PATCH_INSTRUCTIONS.md) | — |
+| Upload release | [docs/UPLOAD_GUIDE.md](docs/UPLOAD_GUIDE.md) | — |
+| Version bump | [docs/VERSION_BUMP.md](docs/VERSION_BUMP.md) | — |
+| Changelog | [docs/CHANGELOG.md](docs/CHANGELOG.md) | — |
+| Release notes | [docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md) | — |
+| Integrasi sistem | [docs/INTEGRASI.md](docs/INTEGRASI.md) | — |
 
 ---
 
@@ -243,10 +246,12 @@ viewer-merusuh/
 - 🔌 [API Reference](DEVELOPER_GUIDE.md#13-rest-api-reference)
 
 ### Release & Deployment
-- 📦 [Changelog](CHANGELOG.md)
-- 📝 [Release Notes](RELEASE_NOTES.md)
-- ⬆️ [Upload Guide](UPLOAD_GUIDE.md)
-- 🔧 [Patch Instructions](PATCH_INSTRUCTIONS.md)
+- 📦 [Changelog](docs/CHANGELOG.md)
+- 📝 [Release Notes](docs/RELEASE_NOTES.md)
+- ⬆️ [Upload Guide](docs/UPLOAD_GUIDE.md)
+- 🔧 [Patch Instructions](docs/PATCH_INSTRUCTIONS.md)
+- 🔢 [Version Bump](docs/VERSION_BUMP.md)
+- 🔗 [Integrasi](docs/INTEGRASI.md)
 
 ---
 

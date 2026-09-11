@@ -696,7 +696,12 @@ Dokumen index ini mencakup:
 | [README.md](README.md) | Panduan utama instalasi & penggunaan |
 | [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md) | Dokumentasi lengkap untuk developer |
 | [DOCUMENTATION_INDEX.md](DOCUMENTATION_INDEX.md) | **Mulai dari sini!** Navigasi semua dokumentasi |
-| [INTEGRASI.md](INTEGRASI.md) | Panduan integrasi dengan sistem eksternal |
+| [docs/INTEGRASI.md](docs/INTEGRASI.md) | Panduan integrasi dengan sistem eksternal |
+| [docs/CHANGELOG.md](docs/CHANGELOG.md) | Riwayat perubahan versi |
+| [docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md) | Catatan rilis |
+| [docs/VERSION_BUMP.md](docs/VERSION_BUMP.md) | Prosedur bump version |
+| [docs/PATCH_INSTRUCTIONS.md](docs/PATCH_INSTRUCTIONS.md) | Instruksi patch update |
+| [docs/UPLOAD_GUIDE.md](docs/UPLOAD_GUIDE.md) | Panduan upload release |
 
 ### Dokumentasi Modul
 

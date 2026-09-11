@@ -1765,9 +1765,30 @@ Dokumentasi ini adalah panduan utama untuk developer, tetapi ada dokumentasi lai
   - [INTEGRATION_GUIDE.md](rc-module/docs/INTEGRATION_GUIDE.md) — Integrasi dengan Viewer Merusuh
 
 ### Dokumentasi Teknis Lainnya
+
+**Deployment & Release** (semua di [`docs/`](docs/)):
 - **Build Electron App** — [`docs/BUILD_ELECTRON.md`](docs/BUILD_ELECTRON.md)  
   Panduan build installer .exe dan portable app.
   
+- **Patch Instructions** — [`docs/PATCH_INSTRUCTIONS.md`](docs/PATCH_INSTRUCTIONS.md)  
+  Instruksi untuk patch update aplikasi.
+  
+- **Upload Guide** — [`docs/UPLOAD_GUIDE.md`](docs/UPLOAD_GUIDE.md)  
+  Panduan upload release ke GitHub/releases.
+  
+- **Version Bump** — [`docs/VERSION_BUMP.md`](docs/VERSION_BUMP.md)  
+  Prosedur bump version semantic versioning.
+  
+- **Changelog** — [`docs/CHANGELOG.md`](docs/CHANGELOG.md)  
+  Riwayat perubahan semua versi.
+  
+- **Release Notes** — [`docs/RELEASE_NOTES.md`](docs/RELEASE_NOTES.md)  
+  Catatan rilis per versi.
+  
+- **Integrasi Sistem** — [`docs/INTEGRASI.md`](docs/INTEGRASI.md)  
+  Panduan integrasi dengan sistem eksternal.
+
+**Game & Adapter**:
 - **Tambah Game Baru** — [`docs/ADDING_GAMES.md`](docs/ADDING_GAMES.md)  
   Cara menambah script AutoHotkey untuk game baru.
   
