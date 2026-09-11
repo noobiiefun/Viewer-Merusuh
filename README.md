@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="./aset logo/icon.png" alt="Viewer Merusuh Logo" width="180"/>
+
 # 🎮 Viewer Merusuh
 
 **Platform interaktif open-source untuk livestreamer — biarkan viewer "merusuh" saat kamu main game melalui donasi.**
