@@ -1744,4 +1744,41 @@ Pengembangan lanjutan yang mungkin dilakukan:
 ---
 
 *Dokumentasi ini terakhir diperbarui: v1.0.0 — mencakup Client Module (Phase 1–5 selesai) dan RC Module (Phase 1–2)*
+
+---
+
+## 📚 Navigasi Dokumentasi Lebih Lanjut
+
+Dokumentasi ini adalah panduan utama untuk developer, tetapi ada dokumentasi lain yang tersebar di proyek ini:
+
+### Dokumentasi Modul Terpisah
+- **Client Module** — [`client/docs/README.md`](client/docs/README.md)  
+  Panduan lengkap setup 2 PC, adapter configuration, dan web dashboard.
+  
+- **RC Module** — [`rc-module/README.md`](rc-module/README.md)  
+  Gambaran umum modul kontrol RC fisik via donasi.
+  
+- **RC Module Technical Docs** — [`rc-module/docs/`](rc-module/docs/)  
+  - [API_REFERENCE.md](rc-module/docs/API_REFERENCE.md) — REST API & Socket.IO events
+  - [HARDWARE_GUIDE.md](rc-module/docs/HARDWARE_GUIDE.md) — Setup ESP32 & hardware
+  - [HARDENING_NOTES.md](rc-module/docs/HARDENING_NOTES.md) — Software security notes
+  - [INTEGRATION_GUIDE.md](rc-module/docs/INTEGRATION_GUIDE.md) — Integrasi dengan Viewer Merusuh
+
+### Dokumentasi Teknis Lainnya
+- **Build Electron App** — [`docs/BUILD_ELECTRON.md`](docs/BUILD_ELECTRON.md)  
+  Panduan build installer .exe dan portable app.
+  
+- **Tambah Game Baru** — [`docs/ADDING_GAMES.md`](docs/ADDING_GAMES.md)  
+  Cara menambah script AutoHotkey untuk game baru.
+  
+- **Setup vJoy/ViGEmBus** — [`docs/VJOY_GUIDE.md`](docs/VJOY_GUIDE.md)  
+  Panduan instalasi dan konfigurasi virtual controller.
+  
+- **Plugin Documentation**  
+  - [GTA 5 Plugin](plugins/gta5/README.md) — ScriptHookV .NET plugin
+  - [BeamNG.drive Plugin](plugins/beamng/README.md) — Lua extension
+
+### Index Dokumentasi Lengkap
+Untuk navigasi mudah ke semua dokumen, lihat **[DOCUMENTATION_INDEX.md](DOCUMENTATION_INDEX.md)** di root proyek.
+
 *GitHub: https://github.com/noobiiefun/Viewer-Merusuh*

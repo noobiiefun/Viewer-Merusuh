@@ -9,7 +9,7 @@
 [![Platform](https://img.shields.io/badge/Platform-Windows-blue.svg)]()
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)]()
 
-[Fitur](#fitur) · [Instalasi](#instalasi) · [Konfigurasi](#konfigurasi) · [Client Module](#client-module--setup-2-pc) · [API](#api-reference) · [Kontribusi](#kontribusi)
+[Fitur](#fitur) · [Instalasi](#instalasi) · [Konfigurasi](#konfigurasi) · [Client Module](#client-module--setup-2-pc) · [RC Module](#rc-module--kontrol-rc-via-donasi) · [API](#api-reference) · [Dokumentasi Lengkap](#dokumentasi-lengkap) · [Kontribusi](#kontribusi)
 
 </div>
 
@@ -436,6 +436,8 @@ Server :3000             :3002 (dashboard)
                           └── Plugin proxy
 ```
 
+📖 **Dokumentasi lengkap:** Lihat [`client/docs/README.md`](client/docs/README.md) untuk panduan detail instalasi, konfigurasi, dan troubleshooting.
+
 ### Instalasi Client
 
 ```bash
@@ -479,7 +481,58 @@ io.use((socket, next) => {
 });
 ```
 
-Dokumentasi lengkap client: [`client/docs/readme.md`](client/docs/readme.md)
+📖 **Dokumentasi lengkap client:** [`client/docs/README.md`](client/docs/README.md) — panduan instalasi, konfigurasi adapter, web dashboard, dan troubleshooting.
+
+---
+
+## RC Module — Kontrol RC via Donasi
+
+Modul ekstensi untuk mengontrol **RC fisik / drone** secara real-time via donasi atau sistem sewa berbayar. Viewer dapat menyewa RC dan mengendalikannya melalui web controller.
+
+```
+Viewer Merusuh ──────► RC Module Server :3001
+                            │
+                            ├── Session Manager (timer, queue)
+                            ├── Fleet Manager (multi-RC)
+                            └── Hardware Adapter
+                                 ├── ESP32 RC
+                                 └── Raspberry Pi Drone
+```
+
+📖 **Dokumentasi lengkap:** Lihat [`rc-module/README.md`](rc-module/README.md) untuk gambaran umum dan [`rc-module/docs/`](rc-module/docs/) untuk dokumentasi teknis.
+
+### Fitur RC Module
+
+- **Sistem Sewa** — viewer bayar → dapat giliran kontrol RC
+- **Queue Management** — antrian otomatis saat RC sibuk
+- **Session Timer** — kontrol otomatis dicabut saat waktu habis
+- **Multi-RC Support** — kelola beberapa RC sekaligus
+- **Web Controller** — kontrol via browser (WASD / D-pad)
+- **Hardware Adapter** — ESP32, Raspberry Pi, simulator
+
+### Status Pengembangan
+
+| Phase | Status | Deskripsi |
+|-------|--------|-----------|
+| Phase 1 | ✅ Selesai | Fondasi & dokumentasi |
+| Phase 1.5 | ✅ Selesai | Pondasi software (validasi, test, persistence) |
+| Phase 2 | 🔄 In Progress | Simulator & web controller |
+| Phase 3 | ⏳ Planned | Hardware integration (ESP32) |
+| Phase 4 | ⏳ Planned | Kamera FPV streaming |
+| Phase 5 | ⏳ Planned | Multi-RC & fleet management |
+| Phase 6 | ⏳ Planned | Integrasi penuh ke Viewer Merusuh |
+
+### Quick Start RC Module
+
+```bash
+cd rc-module
+npm install
+npm run simulator   # Jalankan simulator tanpa hardware
+```
+
+Buka admin dashboard di `http://localhost:3001/rc/admin/admin.html`
+
+> ℹ️ **Catatan:** RC Module adalah modul terpisah yang dapat berdiri sendiri atau diintegrasikan dengan Viewer Merusuh. Lihat [`rc-module/docs/INTEGRATION_GUIDE.md`](rc-module/docs/INTEGRATION_GUIDE.md) untuk panduan integrasi.
 
 ---
 
@@ -624,6 +677,47 @@ git push origin fitur/nama-fitur
 
 ---
 
+## Dokumentasi Lengkap
+
+Proyek ini memiliki dokumentasi yang tersebar di beberapa folder. Untuk memudahkan navigasi, kami telah membuat **Documentation Index** yang menghubungkan semua dokumentasi:
+
+📚 **[DOCUMENTATION_INDEX.md](DOCUMENTATION_INDEX.md)** — Pusat navigasi seluruh dokumentasi Viewer Merusuh.
+
+Dokumen index ini mencakup:
+- 🎯 Panduan berdasarkan peran (pemula, streamer, developer, integrator)
+- 📂 Peta struktur dokumentasi lengkap
+- 🔍 Pencarian berdasarkan topik (instalasi, konfigurasi, API, dll)
+- 🔗 Link cepat ke semua dokumen penting
+
+### Dokumen Utama
+
+| Dokumen | Deskripsi |
+|---------|-----------|
+| [README.md](README.md) | Panduan utama instalasi & penggunaan |
+| [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md) | Dokumentasi lengkap untuk developer |
+| [DOCUMENTATION_INDEX.md](DOCUMENTATION_INDEX.md) | **Mulai dari sini!** Navigasi semua dokumentasi |
+| [INTEGRASI.md](INTEGRASI.md) | Panduan integrasi dengan sistem eksternal |
+
+### Dokumentasi Modul
+
+| Modul | Dokumen |
+|-------|---------|
+| **Client Module** | [client/docs/README.md](client/docs/README.md) — Setup 2 PC |
+| **RC Module** | [rc-module/README.md](rc-module/README.md) — Kontrol RC fisik |
+| **RC Module Docs** | [rc-module/docs/](rc-module/docs/) — API, hardware, integration |
+
+### Dokumentasi Teknis
+
+| Topik | Dokumen |
+|-------|---------|
+| Build .exe installer | [docs/BUILD_ELECTRON.md](docs/BUILD_ELECTRON.md) |
+| Tambah game baru | [docs/ADDING_GAMES.md](docs/ADDING_GAMES.md) |
+| Setup vJoy/ViGEmBus | [docs/VJOY_GUIDE.md](docs/VJOY_GUIDE.md) |
+| Plugin GTA 5 | [plugins/gta5/README.md](plugins/gta5/README.md) |
+| Plugin BeamNG.drive | [plugins/beamng/README.md](plugins/beamng/README.md) |
+
+---
+
 ## Lisensi
 
 [MIT License](LICENSE) — bebas digunakan, dimodifikasi, dan didistribusikan.
@@ -634,6 +728,6 @@ git push origin fitur/nama-fitur
 
 Dibuat dengan ☕ untuk komunitas streamer Indonesia
 
-**[⬆ Kembali ke atas](#-viewer-merusuh)**
+**[⬆ Kembali ke atas](#-viewer-merusuh)** | **[📚 Lihat Semua Dokumentasi](DOCUMENTATION_INDEX.md)**
 
 </div>
